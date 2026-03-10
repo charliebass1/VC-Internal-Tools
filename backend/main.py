@@ -30,4 +30,5 @@ def on_startup():
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok"}
+    import os
+    return {"status": "ok", "demo_mode": not bool(os.environ.get("ANTHROPIC_API_KEY", ""))}
