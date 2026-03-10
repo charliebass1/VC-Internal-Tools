@@ -1,15 +1,15 @@
 # Architecture Overview
 
-This document describes the high-level design of the VC Internal Tools platform.
+This document describes the high-level design of the VC Reference Check tool — an AI-powered platform that helps venture firms automate customer discovery and reference checking during due diligence.
 
 ---
 
 ## Goals
 
-- **Speed up diligence** — reduce the time from first meeting to investment decision
-- **Consistency** — every deal evaluated against the same framework
-- **Data integrity** — single source of truth for deal history, no data in spreadsheets or email threads
-- **Security** — deal data is highly sensitive; confidentiality is a first-class concern
+- **Automate the hardest part of diligence** — finding and talking to real customers, not just the ones the founder picks
+- **Structured data capture** — every reference call follows a standard framework so signals are comparable across deals
+- **AI synthesis** — turn raw call notes into actionable red/green flags automatically
+- **Speed** — compress a 2-week reference check cycle into days
 
 ---
 
@@ -25,23 +25,28 @@ This document describes the high-level design of the VC Internal Tools platform.
 │                    Frontend (SPA)                           │
 │              React / TypeScript / Tailwind                  │
 └───────────────────────┬─────────────────────────────────────┘
-                        │ REST / GraphQL
+                        │ REST API
 ┌───────────────────────▼─────────────────────────────────────┐
 │                   Backend API Server                        │
 │                   Python / FastAPI                          │
 │                                                             │
 │  ┌─────────────┐  ┌──────────────┐  ┌───────────────────┐  │
-│  │  Deal CRUD  │  │  AI Research │  │  Scoring Engine   │  │
-│  │  & Pipeline │  │  Module      │  │  & Memo Generator │  │
+│  │  Deal CRUD  │  │  Customer    │  │  AI Synthesis     │  │
+│  │  & Pipeline │  │  Discovery   │  │  & Signal Engine  │  │
 │  └─────────────┘  └──────────────┘  └───────────────────┘  │
+│                                                             │
+│  ┌──────────────────┐  ┌──────────────────────────────┐     │
+│  │  Reference Check │  │  Interview Guide Generator   │     │
+│  │  Management      │  │  (AI-powered)                │     │
+│  └──────────────────┘  └──────────────────────────────┘     │
 └──────┬─────────────────┬────────────────────────────────────┘
        │                 │
 ┌──────▼──────┐   ┌──────▼──────────────────────────────────┐
-│ PostgreSQL  │   │          External Integrations           │
-│  (primary   │   │  - Claude API (AI research & summaries) │
-│   store)    │   │  - Crunchbase / PitchBook API            │
-│             │   │  - LinkedIn                              │
-│             │   │  - News / web search APIs                │
+│   SQLite    │   │          External Integrations           │
+│  (v1 local) │   │  - Claude API (synthesis, guides, disc.)│
+│  PostgreSQL │   │  - G2 / Capterra (review scraping)      │
+│  (prod)     │   │  - LinkedIn (customer identification)   │
+│             │   │  - Web search APIs                      │
 └─────────────┘   └──────────────────────────────────────────┘
 ```
 
@@ -50,74 +55,101 @@ This document describes the high-level design of the VC Internal Tools platform.
 ## Key Design Decisions
 
 ### Backend: Python / FastAPI
-FastAPI provides async support, automatic OpenAPI docs, and strong typing with Pydantic — well-suited for an internal tool with a small team.
-
-### Database: PostgreSQL
-Structured deal data benefits from relational modeling. PostgreSQL's JSONB columns give flexibility for variable fields (e.g., custom scoring criteria per deal type) without sacrificing query capability.
+FastAPI provides automatic OpenAPI docs and strong typing with Pydantic — well-suited for an internal tool with a small team. SQLite for local development, PostgreSQL for production.
 
 ### AI Layer: Claude API
 Used for:
-- Summarizing pitch decks and meeting notes
-- Generating first-draft investment memos
-- Answering research questions about companies and markets
+- **Customer discovery** — given a company name, generate likely customer profiles and search strategies
+- **Interview guide generation** — create tailored reference check questions based on the company's sector, stage, and product
+- **Call synthesis** — turn raw notes from reference calls into structured signals (sentiment, churn risk, competitive positioning, product gaps)
+- **Signal aggregation** — analyze all references for a deal and surface the most important patterns
 
-The AI module calls Claude as a backend service; no AI calls happen from the frontend.
+All AI calls happen server-side. No API keys in the frontend.
 
-### Authentication
-SSO via the firm's identity provider (Google Workspace / Okta). All users must be authenticated; there is no public-facing surface.
-
-### Data Isolation
-All deal data is scoped to the firm's tenant. If multi-tenancy is ever needed (e.g., for a platform play), row-level security in PostgreSQL will be the enforcement mechanism.
-
----
-
-## Data Model (Draft)
+### Data Model
 
 ```
 Deal
-├── id
-├── company_name
-├── stage                  # inbound | screening | deep_dive | ic_review | closed
-├── sector
-├── lead_partner
+├── id                     UUID
+├── company_name           string
+├── company_website        string
+├── sector                 string
+├── stage                  string (screening | deep_dive | ic_review | closed)
+├── lead_partner           string
+├── description            text
 ├── created_at / updated_at
-├── notes[]                # timestamped, author-attributed
-├── score_card             # JSONB — flexible rubric fields
-└── documents[]            # links to uploaded pitch decks, financials
 
-Company
-├── id
-├── name
-├── website
-├── founding_year
-├── hq_location
-├── description
-└── external_data          # JSONB — pulled from Crunchbase, LinkedIn, etc.
+ReferenceContact
+├── id                     UUID
+├── deal_id                FK → Deal
+├── name                   string
+├── title                  string
+├── company                string (where they work — the customer)
+├── email                  string
+├── linkedin_url           string
+├── source                 string (company_provided | discovered | backchannel)
+├── status                 string (identified | outreach_sent | scheduled | completed | declined)
+├── outreach_template      text (AI-generated email draft)
+├── created_at / updated_at
 
-Memo
-├── id
-├── deal_id
-├── version
-├── content                # Markdown
-├── generated_by           # human | ai_draft
-└── created_at
+ReferenceNote
+├── id                     UUID
+├── reference_id           FK → ReferenceContact
+├── content                text (raw call notes or transcript)
+├── call_date              datetime
+├── interviewer            string
+├── created_at
+
+SignalReport
+├── id                     UUID
+├── deal_id                FK → Deal
+├── summary                text (AI-generated synthesis)
+├── signals                JSON [{category, signal, sentiment, evidence}]
+├── red_flags              JSON [string]
+├── green_flags            JSON [string]
+├── generated_at           datetime
+```
+
+### Reference Check Workflow
+
+```
+1. Create Deal
+   └→ Enter company name, website, sector
+
+2. Discover Customers
+   └→ AI suggests likely customers from web presence
+   └→ Manual entry for company-provided refs
+
+3. Outreach
+   └→ AI drafts personalized emails per contact
+   └→ Track status: sent → scheduled → completed
+
+4. Conduct Calls
+   └→ AI generates tailored interview guide
+   └→ Record notes during/after the call
+
+5. Synthesize
+   └→ AI analyzes all notes for this deal
+   └→ Produces signal report with red/green flags
+   └→ Dashboard view for IC presentation
 ```
 
 ---
 
 ## Security Considerations
 
-- All traffic over TLS; no HTTP
-- API keys and secrets in environment variables only, never in code
-- Role-based access: `analyst`, `associate`, `partner`, `admin`
-- Audit log for all writes to deal records
-- No deal data stored in AI provider logs (use API-level data handling settings)
+- API keys and secrets in environment variables only
+- Deal data and reference contact info treated as confidential
+- No PII logged
+- Claude API called with data retention disabled where possible
 
 ---
 
-## Future Considerations
+## V1 Scope (Local)
 
-- **Real-time collaboration** — WebSockets for live co-editing of memos
-- **Mobile** — read-only native app for deal review on the go
-- **Integrations** — two-way sync with Affinity CRM or similar
-- **Analytics** — funnel metrics, decision latency, portfolio tracking
+The v1 is a locally-runnable app for a single user:
+- SQLite database (no server setup)
+- No auth (local-only)
+- Full reference check workflow
+- Claude API integration for AI features (requires API key)
+- Graceful fallback when no API key is set (manual-only mode)

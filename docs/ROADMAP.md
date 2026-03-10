@@ -1,99 +1,62 @@
-# Product Roadmap
+# Product Roadmap — VC Reference Check Tool
 
-This roadmap outlines the phased build-out of the VC Internal Tools platform. Priorities are set by the investment team and reviewed quarterly.
-
----
-
-## Phase 1 — Foundation (Months 1–2)
-
-**Goal:** Replace spreadsheets and email threads with a structured deal pipeline.
-
-- [ ] User auth via SSO (Google Workspace / Okta)
-- [ ] Deal creation and basic CRUD (company name, stage, sector, lead partner)
-- [ ] Pipeline board view (Kanban by stage)
-- [ ] Deal list view with search and filter
-- [ ] Timestamped notes on deals (author-attributed)
-- [ ] Document upload (pitch decks, financials)
-- [ ] Role-based access control (analyst, associate, partner, admin)
-- [ ] Audit log for deal record changes
-
-**Success metric:** All active deals tracked in the platform; no new deals in spreadsheets.
+An AI-powered reference check platform for venture capital firms. The core insight: customer reference checks are the most manual, least automated step in VC diligence — and the most valuable signal.
 
 ---
 
-## Phase 2 — AI-Assisted Research (Months 3–4)
+## V1 — Local MVP (Current Build)
 
-**Goal:** Cut research time per deal by automating information gathering and first-draft memos.
+**Goal:** A working local tool that demonstrates the full reference check workflow.
 
-- [ ] Claude API integration for deal research
-- [ ] Pitch deck summarization (upload PDF → get structured summary)
-- [ ] Auto-populated company profile from public data (Crunchbase / web)
-- [ ] First-draft investment memo generation from deal data + notes
-- [ ] Q&A interface: ask questions about a company or market, grounded in uploaded docs
-- [ ] News and recent funding monitoring for pipeline companies
+- [x] Deal creation and listing
+- [x] Reference contact management (add, track status)
+- [x] Customer discovery via AI (suggest likely customers given a company)
+- [x] AI-generated outreach email drafts
+- [x] AI-generated interview guides tailored to the company
+- [x] Call note capture
+- [x] AI synthesis — turn notes into structured signals
+- [x] Signal dashboard with red/green flags per deal
 
-**Success metric:** Partners spend less time on research aggregation, more time on judgment calls.
-
----
-
-## Phase 3 — Scoring & Consistency (Months 5–6)
-
-**Goal:** Standardize how deals are evaluated so decisions are defensible and comparable.
-
-- [ ] Configurable scoring rubric per deal type (B2B SaaS, deep tech, consumer, etc.)
-- [ ] Scoring UI — partners fill out rubric fields, scores aggregate automatically
-- [ ] Deal comparison view — stack rank active pipeline deals side-by-side
-- [ ] IC (Investment Committee) memo template with structured sections
-- [ ] Decision recording — pass/invest with required rationale
-- [ ] Historical decision log for LP reporting
-
-**Success metric:** Every IC-reviewed deal has a completed scorecard and written rationale on record.
+**Stack:** FastAPI + SQLite + React + Tailwind + Claude API
 
 ---
 
-## Phase 4 — Collaboration & Workflow (Months 7–9)
+## V2 — Production Web App
 
-**Goal:** Make the platform the team's operating system for deals, not just a database.
+**Goal:** Deploy as a hosted web app, ready for teams to use and for Twitter launch.
 
-- [ ] Task assignment on deals (due diligence checklist items)
-- [ ] @mentions in notes with notifications
-- [ ] Deal activity feed (team-wide and per-deal)
-- [ ] Weekly pipeline digest email
-- [ ] Founder relationship tracking (communication history)
-- [ ] Reference check workflow
-
-**Success metric:** Investment team uses the platform daily without prompting.
-
----
-
-## Phase 5 — Analytics & Portfolio (Months 10–12)
-
-**Goal:** Use accumulated data to improve future decisions and report to LPs.
-
-- [ ] Funnel analytics — conversion rates by stage, sector, source
-- [ ] Decision latency metrics — time from first meeting to decision by deal type
-- [ ] Portfolio company view — track companies post-investment
-- [ ] LP-ready reporting exports
-- [ ] Integration with Affinity CRM or similar (two-way sync)
-
-**Success metric:** Quarterly LP reports generated directly from the platform with no manual data assembly.
+- [ ] PostgreSQL migration
+- [ ] User authentication (email/password + Google OAuth)
+- [ ] Multi-user collaboration (shared deals, assigned references)
+- [ ] Deploy to Railway / Fly.io / Vercel
+- [ ] Polished UI with animations and loading states
+- [ ] Email sending integration (actually send outreach, not just draft)
+- [ ] File upload for pitch decks and call recordings
 
 ---
 
-## Icebox (Future Consideration)
+## V3 — Growth Features
 
-These are ideas not yet scheduled but worth revisiting:
+**Goal:** Make it sticky for VC teams and worth paying for.
 
-- Mobile app (read-only, for deal review on the go)
-- Co-investment partner portal (limited external access)
-- Automated cap table modeling
-- Real-time collaborative memo editing
-- Custom AI fine-tuning on historical investment decisions
+- [ ] Real-time notifications when reference status changes
+- [ ] Transcript upload and auto-parsing (Otter.ai / Fireflies integration)
+- [ ] G2 and Capterra review scraping for automated customer discovery
+- [ ] LinkedIn integration for contact enrichment
+- [ ] Deal comparison — stack rank by reference signal strength
+- [ ] IC memo generation from reference signals
+- [ ] Portfolio intelligence — cross-reference data across all deals
+- [ ] Team analytics — deals evaluated, reference velocity, conversion rates
 
 ---
 
-## How This Roadmap Is Updated
+## V4 — Platform
 
-- Reviewed and re-prioritized each quarter by the investment team
-- Individual items moved between phases as priorities shift
-- New ideas added to the Icebox first, then promoted to a phase when prioritized
+**Goal:** Expand beyond reference checks to become the VC diligence OS.
+
+- [ ] Market thesis builder with evidence tracking
+- [ ] Founder backchannel reference module
+- [ ] Scoring rubrics and investment frameworks
+- [ ] LP reporting and audit trail
+- [ ] CRM integration (Affinity, Attio)
+- [ ] API for custom integrations
