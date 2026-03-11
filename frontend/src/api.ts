@@ -48,3 +48,7 @@ export const synthesizeSignals = (dealId: string) =>
   request<any>(`/deals/${dealId}/synthesize`, { method: 'POST' })
 export const getSignalReports = (dealId: string) =>
   request<any[]>(`/deals/${dealId}/signals`)
+
+// Tutorial
+export const seedTutorialData = () =>
+  request<{ success: boolean; message: string; deal_id?: string }>('/seed-tutorial', { method: 'POST' })

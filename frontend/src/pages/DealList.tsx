@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { listDeals, createDeal } from '../api'
 import { Deal } from '../types'
 
@@ -11,6 +11,7 @@ const STAGES: Record<string, string> = {
 }
 
 export default function DealList() {
+  const navigate = useNavigate()
   const [deals, setDeals] = useState<Deal[]>([])
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState({
@@ -135,7 +136,13 @@ export default function DealList() {
         <div className="text-center py-20">
           <div className="text-6xl mb-4">🔍</div>
           <h2 className="text-xl font-semibold text-gray-700 mb-2">No deals yet</h2>
-          <p className="text-gray-500">Create your first deal to start reference checking.</p>
+          <p className="text-gray-500 mb-4">Create your first deal to start reference checking.</p>
+          <button
+            onClick={() => navigate('/tutorial')}
+            className="text-indigo-600 hover:text-indigo-800 text-sm font-medium underline"
+          >
+            New here? Take the platform tutorial &rarr;
+          </button>
         </div>
       ) : (
         <div className="grid gap-4">
