@@ -1,6 +1,5 @@
-from __future__ import annotations
-
 from datetime import datetime
+from typing import List, Optional
 from pydantic import BaseModel
 
 
@@ -16,12 +15,12 @@ class DealCreate(BaseModel):
 
 
 class DealUpdate(BaseModel):
-    company_name: str | None = None
-    company_website: str | None = None
-    sector: str | None = None
-    stage: str | None = None
-    lead_partner: str | None = None
-    description: str | None = None
+    company_name: Optional[str] = None
+    company_website: Optional[str] = None
+    sector: Optional[str] = None
+    stage: Optional[str] = None
+    lead_partner: Optional[str] = None
+    description: Optional[str] = None
 
 
 class DealOut(BaseModel):
@@ -53,14 +52,14 @@ class ReferenceContactCreate(BaseModel):
 
 
 class ReferenceContactUpdate(BaseModel):
-    name: str | None = None
-    title: str | None = None
-    company: str | None = None
-    email: str | None = None
-    linkedin_url: str | None = None
-    source: str | None = None
-    status: str | None = None
-    outreach_template: str | None = None
+    name: Optional[str] = None
+    title: Optional[str] = None
+    company: Optional[str] = None
+    email: Optional[str] = None
+    linkedin_url: Optional[str] = None
+    source: Optional[str] = None
+    status: Optional[str] = None
+    outreach_template: Optional[str] = None
 
 
 class ReferenceNoteOut(BaseModel):
@@ -87,7 +86,7 @@ class ReferenceContactOut(BaseModel):
     outreach_template: str
     created_at: datetime
     updated_at: datetime
-    notes: list[ReferenceNoteOut] = []
+    notes: List[ReferenceNoteOut] = []
 
     model_config = {"from_attributes": True}
 
@@ -96,7 +95,7 @@ class ReferenceContactOut(BaseModel):
 
 class ReferenceNoteCreate(BaseModel):
     content: str
-    call_date: datetime | None = None
+    call_date: Optional[datetime] = None
     interviewer: str = ""
 
 
@@ -106,9 +105,9 @@ class SignalReportOut(BaseModel):
     id: str
     deal_id: str
     summary: str
-    signals: list[dict] = []
-    red_flags: list[str] = []
-    green_flags: list[str] = []
+    signals: List[dict] = []
+    red_flags: List[str] = []
+    green_flags: List[str] = []
     generated_at: datetime
 
     model_config = {"from_attributes": True}
