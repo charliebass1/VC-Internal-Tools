@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useTutorial } from '../tutorial/useTutorial'
 import TutorialOverlay from '../components/TutorialOverlay'
 import { DILIGENCE_TUTORIAL_STEPS } from '../tutorial/types'
+import { seedTutorialData } from '../api'
 
 export default function Tutorial() {
   const navigate = useNavigate()
@@ -16,12 +17,7 @@ export default function Tutorial() {
     setSeedError('')
     setSeedResult(null)
     try {
-      const res = await fetch('/api/seed-tutorial', { method: 'POST' })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({ detail: 'Seed failed' }))
-        throw new Error(err.detail || 'Seed failed')
-      }
-      const data = await res.json()
+      const data = await seedTutorialData()
       setSeedResult(data)
     } catch (e: any) {
       setSeedError(e.message)
