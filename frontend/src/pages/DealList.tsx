@@ -22,6 +22,8 @@ export default function DealList() {
     description: '',
   })
   const [loading, setLoading] = useState(true)
+  const [backendDown, setBackendDown] = useState(false)
+  const [createError, setCreateError] = useState('')
 
   useEffect(() => {
     loadDeals()
@@ -31,8 +33,9 @@ export default function DealList() {
     try {
       const data = await listDeals()
       setDeals(data)
+      setBackendDown(false)
     } catch (e) {
-      console.error(e)
+      setBackendDown(true)
     } finally {
       setLoading(false)
     }
@@ -40,13 +43,14 @@ export default function DealList() {
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
+    setCreateError('')
     try {
       await createDeal(form)
       setForm({ company_name: '', company_website: '', sector: '', lead_partner: '', description: '' })
       setShowForm(false)
       loadDeals()
-    } catch (e) {
-      console.error(e)
+    } catch (e: any) {
+      setCreateError(e.message || 'Failed to create deal — is the backend running?')
     }
   }
 
@@ -56,6 +60,12 @@ export default function DealList() {
 
   return (
     <div>
+      {backendDown && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6 text-sm">
+          <strong>Backend not reachable.</strong> Start the dev server with <code className="font-mono bg-red-100 px-1 rounded">./scripts/dev.sh</code> from the project root, then refresh this page.
+        </div>
+      )}
+
       <div className="flex justify-between items-center mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Deal Pipeline</h1>
@@ -121,11 +131,16 @@ export default function DealList() {
               placeholder="Brief description of what the company does..."
             />
           </div>
+          {createError && (
+            <div className="mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+              {createError}
+            </div>
+          )}
           <div className="mt-4 flex gap-2">
             <button type="submit" className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition font-medium">
               Create Deal
             </button>
-            <button type="button" onClick={() => setShowForm(false)} className="text-gray-500 px-4 py-2 hover:text-gray-700">
+            <button type="button" onClick={() => { setShowForm(false); setCreateError('') }} className="text-gray-500 px-4 py-2 hover:text-gray-700">
               Cancel
             </button>
           </div>
