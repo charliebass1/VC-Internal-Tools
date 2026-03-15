@@ -1,0 +1,1 @@
+Stage all changes, write a concise commit message that summarizes what changed (inferred from the diff), and push to the current branch. Use `git push -u origin <branch>`. Do not ask for confirmation — just do it.
