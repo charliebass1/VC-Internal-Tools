@@ -1,9 +1,6 @@
--- Enable UUID extension
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-
 -- Deals table
 CREATE TABLE deals (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   company_name TEXT NOT NULL,
   company_website TEXT NOT NULL DEFAULT '',
   sector TEXT NOT NULL DEFAULT '',
@@ -17,7 +14,7 @@ CREATE TABLE deals (
 
 -- Reference contacts table
 CREATE TABLE reference_contacts (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   deal_id UUID NOT NULL REFERENCES deals(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   title TEXT NOT NULL DEFAULT '',
@@ -35,7 +32,7 @@ CREATE TABLE reference_contacts (
 
 -- Reference notes table
 CREATE TABLE reference_notes (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   reference_id UUID NOT NULL REFERENCES reference_contacts(id) ON DELETE CASCADE,
   content TEXT NOT NULL,
   call_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -45,7 +42,7 @@ CREATE TABLE reference_notes (
 
 -- Signal reports table
 CREATE TABLE signal_reports (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   deal_id UUID NOT NULL REFERENCES deals(id) ON DELETE CASCADE,
   summary TEXT NOT NULL DEFAULT '',
   signals JSONB NOT NULL DEFAULT '[]',
