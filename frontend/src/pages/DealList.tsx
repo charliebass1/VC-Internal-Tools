@@ -55,7 +55,31 @@ export default function DealList() {
   }
 
   if (loading) {
-    return <div className="text-center py-20 text-gray-400">Loading...</div>
+    return (
+      <div>
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <div className="skeleton h-9 w-48 mb-2" />
+            <div className="skeleton h-5 w-64" />
+          </div>
+          <div className="skeleton h-10 w-28 rounded-lg" />
+        </div>
+        <div className="grid gap-4">
+          {[1, 2, 3].map(i => (
+            <div key={i} className="bg-white rounded-xl border border-gray-200 p-6">
+              <div className="flex justify-between">
+                <div className="space-y-2">
+                  <div className="skeleton h-6 w-48" />
+                  <div className="skeleton h-4 w-36" />
+                  <div className="skeleton h-4 w-72" />
+                </div>
+                <div className="skeleton h-6 w-20 rounded-full" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -73,7 +97,7 @@ export default function DealList() {
         </div>
         <button
           onClick={() => setShowForm(!showForm)}
-          className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition font-medium"
+          className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 active:scale-95 transition-all duration-200 font-medium"
         >
           + New Deal
         </button>
@@ -89,7 +113,7 @@ export default function DealList() {
                 required
                 value={form.company_name}
                 onChange={e => setForm({ ...form, company_name: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition"
                 placeholder="Acme Corp"
               />
             </div>
@@ -98,7 +122,7 @@ export default function DealList() {
               <input
                 value={form.company_website}
                 onChange={e => setForm({ ...form, company_website: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition"
                 placeholder="https://acme.com"
               />
             </div>
@@ -107,7 +131,7 @@ export default function DealList() {
               <input
                 value={form.sector}
                 onChange={e => setForm({ ...form, sector: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition"
                 placeholder="B2B SaaS"
               />
             </div>
@@ -116,7 +140,7 @@ export default function DealList() {
               <input
                 value={form.lead_partner}
                 onChange={e => setForm({ ...form, lead_partner: e.target.value })}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+                className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition"
                 placeholder="Jane Smith"
               />
             </div>
@@ -126,7 +150,7 @@ export default function DealList() {
             <textarea
               value={form.description}
               onChange={e => setForm({ ...form, description: e.target.value })}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none"
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition"
               rows={2}
               placeholder="Brief description of what the company does..."
             />
@@ -137,10 +161,10 @@ export default function DealList() {
             </div>
           )}
           <div className="mt-4 flex gap-2">
-            <button type="submit" className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition font-medium">
+            <button type="submit" className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 active:scale-95 transition-all duration-200 font-medium">
               Create Deal
             </button>
-            <button type="button" onClick={() => { setShowForm(false); setCreateError('') }} className="text-gray-500 px-4 py-2 hover:text-gray-700">
+            <button type="button" onClick={() => { setShowForm(false); setCreateError('') }} className="text-gray-500 px-4 py-2 hover:text-gray-700 transition-colors">
               Cancel
             </button>
           </div>
@@ -161,11 +185,12 @@ export default function DealList() {
         </div>
       ) : (
         <div className="grid gap-4">
-          {deals.map(deal => (
+          {deals.map((deal, index) => (
             <Link
               key={deal.id}
               to={`/deals/${deal.id}`}
-              className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-indigo-200 transition block"
+              style={{ animationDelay: `${index * 60}ms` }}
+              className="deal-card-enter bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md hover:border-indigo-200 transition-all duration-200 block"
             >
               <div className="flex justify-between items-start">
                 <div>

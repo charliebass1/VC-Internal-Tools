@@ -181,7 +181,23 @@ export default function DealDetail() {
     loadAll()
   }
 
-  if (loading) return <div className="text-center py-20 text-gray-400">Loading...</div>
+  if (loading) return (
+    <div>
+      <div className="skeleton h-4 w-24 mb-4" />
+      <div className="skeleton h-9 w-64 mb-3" />
+      <div className="flex gap-3 mb-6">
+        <div className="skeleton h-5 w-32" />
+        <div className="skeleton h-5 w-24" />
+      </div>
+      <div className="grid grid-cols-4 gap-4 mb-8">
+        {[1,2,3,4].map(i => <div key={i} className="bg-white rounded-xl border border-gray-200 p-4"><div className="skeleton h-8 w-10 mx-auto mb-2" /><div className="skeleton h-4 w-16 mx-auto" /></div>)}
+      </div>
+      <div className="skeleton h-10 w-80 rounded-lg mb-6" />
+      <div className="space-y-3">
+        {[1,2,3].map(i => <div key={i} className="bg-white rounded-xl border border-gray-200 p-4"><div className="skeleton h-5 w-56" /></div>)}
+      </div>
+    </div>
+  )
   if (!deal) return <div className="text-center py-20 text-red-500">Deal not found</div>
 
   const latestReport = signals.length > 0 ? signals[signals.length - 1] : null
@@ -257,20 +273,23 @@ export default function DealDetail() {
         ))}
       </div>
 
+      {/* Tab content with fade-in on switch */}
+      <div key={tab} className="tab-content-enter">
+
       {/* References Tab */}
       {tab === 'references' && (
         <div>
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-semibold">Reference Contacts</h2>
             <div className="flex gap-2">
-              <button onClick={() => setShowAddRef(!showAddRef)} className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-indigo-700 transition">
+              <button onClick={() => setShowAddRef(!showAddRef)} className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-indigo-700 active:scale-95 transition-all duration-200">
                 + Add Reference
               </button>
               {references.some(r => r.notes.length > 0) && (
                 <button
                   onClick={handleSynthesize}
                   disabled={aiLoading}
-                  className="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-emerald-700 transition disabled:opacity-50"
+                  className="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-emerald-700 active:scale-95 transition-all duration-200 disabled:opacity-50"
                 >
                   {aiLoading ? 'Synthesizing...' : 'Synthesize Signals'}
                 </button>
@@ -408,7 +427,7 @@ export default function DealDetail() {
           <button
             onClick={handleDiscover}
             disabled={aiLoading}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition disabled:opacity-50"
+            className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 active:scale-95 transition-all duration-200 disabled:opacity-50"
           >
             {aiLoading ? 'Discovering...' : 'Discover Customers'}
           </button>
@@ -445,7 +464,7 @@ export default function DealDetail() {
           <button
             onClick={handleInterviewGuide}
             disabled={aiLoading}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition disabled:opacity-50"
+            className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 active:scale-95 transition-all duration-200 disabled:opacity-50"
           >
             {aiLoading ? 'Generating...' : 'Generate Interview Guide'}
           </button>
@@ -457,7 +476,7 @@ export default function DealDetail() {
         </div>
       )}
 
-      {/* Signals Tab */}
+      {/* Signal Report Tab */}
       {tab === 'signals' && (
         <div>
           {!latestReport ? (
@@ -539,6 +558,8 @@ export default function DealDetail() {
           )}
         </div>
       )}
+
+      </div> {/* end tab-content-enter */}
     </div>
   )
 }
