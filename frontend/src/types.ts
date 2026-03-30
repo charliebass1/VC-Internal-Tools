@@ -53,3 +53,20 @@ export interface SignalReport {
   green_flags: string[]
   generated_at: string
 }
+
+export interface ActivityEvent {
+  id: string
+  deal_id: string | null
+  event_type: string
+  title: string
+  metadata: Record<string, any>
+  created_at: string
+}
+
+export interface DashboardStats {
+  activeDeals: number
+  refsInProgress: number
+  signalsGenerated: number
+  dealsClosed: number
+  pipelineCounts: Record<string, number>
+}

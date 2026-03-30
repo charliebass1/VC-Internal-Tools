@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
+import { toast } from 'sonner'
 import {
   getDeal, deleteDeal, updateDeal,
   listReferences, createReference, updateReference, deleteReference,
   addNote, discoverCustomers, generateOutreach,
   generateInterviewGuide, synthesizeSignals, getSignalReports,
-} from '../api'
-import { Deal, ReferenceContact, SignalReport } from '../types'
+} from '@/api'
+import { Deal, ReferenceContact, SignalReport } from '@/types'
 
 const STATUS_COLORS: Record<string, string> = {
   identified: 'bg-gray-100 text-gray-700',
@@ -32,7 +33,6 @@ export default function DealDetail() {
   const [tab, setTab] = useState<'references' | 'discover' | 'guide' | 'signals'>('references')
   const [loading, setLoading] = useState(true)
   const [aiLoading, setAiLoading] = useState(false)
-  const [error, setError] = useState('')
 
   // Form states
   const [showAddRef, setShowAddRef] = useState(false)
@@ -58,7 +58,7 @@ export default function DealDetail() {
       setReferences(refs)
       setSignals(sigs)
     } catch (e: any) {
-      setError(e.message)
+      toast.error(e.message || 'Failed to load deal')
     } finally {
       setLoading(false)
     }
@@ -88,7 +88,6 @@ export default function DealDetail() {
   async function handleDiscover() {
     if (!deal) return
     setAiLoading(true)
-    setError('')
     try {
       const result = await discoverCustomers(id!, {
         company_name: deal.company_name,
@@ -98,7 +97,7 @@ export default function DealDetail() {
       })
       setDiscoveredCustomers(result.customers || [])
     } catch (e: any) {
-      setError(e.message)
+      toast.error(e.message || 'Discovery failed')
     } finally {
       setAiLoading(false)
     }
@@ -117,7 +116,6 @@ export default function DealDetail() {
 
   async function handleOutreach(ref: ReferenceContact) {
     setAiLoading(true)
-    setError('')
     try {
       const result = await generateOutreach(ref.id, {
         reference_name: ref.name,
@@ -127,7 +125,7 @@ export default function DealDetail() {
       })
       setOutreachResult({ ...outreachResult, [ref.id]: result.email })
     } catch (e: any) {
-      setError(e.message)
+      toast.error(e.message || 'Outreach generation failed')
     } finally {
       setAiLoading(false)
     }
@@ -136,7 +134,6 @@ export default function DealDetail() {
   async function handleInterviewGuide() {
     if (!deal) return
     setAiLoading(true)
-    setError('')
     try {
       const result = await generateInterviewGuide(id!, {
         company_name: deal.company_name,
@@ -144,7 +141,7 @@ export default function DealDetail() {
       })
       setInterviewGuide(result.guide)
     } catch (e: any) {
-      setError(e.message)
+      toast.error(e.message || 'Guide generation failed')
     } finally {
       setAiLoading(false)
     }
@@ -152,14 +149,13 @@ export default function DealDetail() {
 
   async function handleSynthesize() {
     setAiLoading(true)
-    setError('')
     try {
       await synthesizeSignals(id!)
       const sigs = await getSignalReports(id!)
       setSignals(sigs)
       setTab('signals')
     } catch (e: any) {
-      setError(e.message)
+      toast.error(e.message || 'Synthesis failed')
     } finally {
       setAiLoading(false)
     }
@@ -168,7 +164,7 @@ export default function DealDetail() {
   async function handleDeleteDeal() {
     if (!confirm('Delete this deal and all its references?')) return
     await deleteDeal(id!)
-    navigate('/')
+    navigate('/deals')
   }
 
   async function handleDeleteRef(refId: string) {
@@ -207,7 +203,7 @@ export default function DealDetail() {
       {/* Header */}
       <div className="flex items-start justify-between mb-6">
         <div>
-          <Link to="/" className="text-indigo-600 hover:text-indigo-800 text-sm mb-2 inline-block">&larr; All Deals</Link>
+          <Link to="/deals" className="text-primary hover:text-primary/80 text-sm mb-2 inline-block">&larr; All Deals</Link>
           <h1 className="text-3xl font-bold text-gray-900">{deal.company_name}</h1>
           <div className="flex gap-3 mt-2 text-sm text-gray-500">
             {deal.company_website && <a href={deal.company_website} target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline">{deal.company_website}</a>}
@@ -230,13 +226,6 @@ export default function DealDetail() {
           <button onClick={handleDeleteDeal} className="text-red-400 hover:text-red-600 text-sm px-2">Delete</button>
         </div>
       </div>
-
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
-          {error}
-          <button onClick={() => setError('')} className="ml-2 font-bold">&times;</button>
-        </div>
-      )}
 
       {/* Stats Bar */}
       <div className="grid grid-cols-4 gap-4 mb-8">
