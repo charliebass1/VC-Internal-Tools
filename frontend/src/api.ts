@@ -40,7 +40,9 @@ export async function createDeal(data: any) {
     .select()
     .single()
   if (error) throw new Error(error.message)
-  return { ...row, reference_count: 0, completed_references: 0 }
+  const deal = { ...row, reference_count: 0, completed_references: 0 }
+  logActivity('deal_created', `${deal.company_name} added to pipeline`, deal.id, { company_name: deal.company_name })
+  return deal
 }
 
 export async function updateDeal(id: string, data: any) {
@@ -155,3 +157,80 @@ export async function getSignalReports(dealId: string) {
 
 export const seedTutorialData = () =>
   invokeFunction('seed-tutorial', {})
+
+// ── Activity Events ──────────────────────────────────────────────────
+
+export async function logActivity(
+  event_type: string,
+  title: string,
+  deal_id?: string,
+  metadata: Record<string, any> = {}
+) {
+  try {
+    await supabase
+      .from('activity_events')
+      .insert({ event_type, title, deal_id: deal_id || null, metadata })
+  } catch {
+    // fire-and-forget: never block CRUD operations
+  }
+}
+
+export async function getRecentActivity(limit = 15) {
+  const { data, error } = await supabase
+    .from('activity_events')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(limit)
+
+  if (!error && data && data.length > 0) return data
+
+  // Fallback: derive activity from recent deals if table doesn't exist or is empty
+  const { data: deals } = await supabase
+    .from('deals')
+    .select('id, company_name, stage, created_at, updated_at')
+    .order('updated_at', { ascending: false })
+    .limit(limit)
+
+  return (deals || []).map((d: any) => ({
+    id: d.id,
+    deal_id: d.id,
+    event_type: 'deal_created',
+    title: d.company_name,
+    metadata: { company_name: d.company_name, stage: d.stage },
+    created_at: d.updated_at || d.created_at,
+  }))
+}
+
+// ── Dashboard Stats ──────────────────────────────────────────────────
+
+export async function getDashboardStats() {
+  const { data: deals, error } = await supabase
+    .from('deals')
+    .select('stage, reference_contacts(id, status)')
+
+  if (error) throw new Error(error.message)
+
+  const pipelineCounts: Record<string, number> = {
+    screening: 0, deep_dive: 0, ic_review: 0, closed: 0,
+  }
+
+  let refsInProgress = 0
+  deals.forEach((d: any) => {
+    pipelineCounts[d.stage] = (pipelineCounts[d.stage] || 0) + 1
+    ;(d.reference_contacts || []).forEach((r: any) => {
+      if (['outreach_sent', 'scheduled'].includes(r.status)) refsInProgress++
+    })
+  })
+
+  const { count: signalCount } = await supabase
+    .from('signal_reports')
+    .select('*', { count: 'exact', head: true })
+
+  return {
+    activeDeals: deals.filter((d: any) => d.stage !== 'closed').length,
+    refsInProgress,
+    signalsGenerated: signalCount || 0,
+    dealsClosed: pipelineCounts.closed,
+    pipelineCounts,
+  }
+}
