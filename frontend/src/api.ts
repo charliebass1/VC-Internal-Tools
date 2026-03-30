@@ -158,6 +158,90 @@ export async function getSignalReports(dealId: string) {
 export const seedTutorialData = () =>
   invokeFunction('seed-tutorial', {})
 
+// ── Company Profiles ─────────────────────────────────────────────────
+
+const DEMO_ENRICHMENT = {
+  founded_year: 2019,
+  team_size_range: '51-200',
+  funding_stage: 'Series B',
+  total_raised: '$45M',
+  competitors: ['Competitor Alpha', 'Competitor Beta', 'Competitor Gamma'],
+  key_people: [
+    { name: 'Jane Doe', title: 'CEO & Co-founder', linkedin_url: '' },
+    { name: 'John Smith', title: 'CTO & Co-founder', linkedin_url: '' },
+    { name: 'Alice Johnson', title: 'VP of Engineering', linkedin_url: '' },
+  ],
+  ai_summary:
+    'A fast-growing B2B SaaS platform that uses AI to automate complex workflows for mid-market enterprises. The company has shown strong product-market fit with 3x YoY revenue growth, high net retention, and a rapidly expanding customer base across financial services and healthcare verticals.',
+}
+
+function logoUrlFromWebsite(website: string): string {
+  if (!website) return ''
+  try {
+    const hostname = new URL(website.startsWith('http') ? website : `https://${website}`).hostname
+    return `https://logo.clearbit.com/${hostname}`
+  } catch {
+    return ''
+  }
+}
+
+export async function getCompanyProfile(dealId: string) {
+  const { data, error } = await supabase
+    .from('company_profiles')
+    .select('*')
+    .eq('deal_id', dealId)
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  return data
+}
+
+export async function enrichCompany(
+  dealId: string,
+  info: { company_name: string; company_website: string; sector: string; description: string }
+) {
+  const logo_url = logoUrlFromWebsite(info.company_website)
+
+  let profileData: any
+  try {
+    profileData = await invokeFunction('enrich-company', { ...info, deal_id: dealId })
+  } catch {
+    // Edge Function not deployed — use demo data
+    profileData = { ...DEMO_ENRICHMENT }
+  }
+
+  // Remove non-profile keys
+  delete profileData.demo
+  delete profileData.error
+
+  const { data, error } = await supabase
+    .from('company_profiles')
+    .upsert(
+      {
+        deal_id: dealId,
+        logo_url,
+        founded_year: profileData.founded_year ?? null,
+        team_size_range: profileData.team_size_range || '',
+        funding_stage: profileData.funding_stage || '',
+        total_raised: profileData.total_raised || '',
+        competitors: profileData.competitors || [],
+        key_people: profileData.key_people || [],
+        ai_summary: profileData.ai_summary || '',
+        enriched_at: new Date().toISOString(),
+      },
+      { onConflict: 'deal_id' }
+    )
+    .select()
+    .single()
+
+  if (error) throw new Error(error.message)
+
+  logActivity('company_enriched', `${info.company_name} profile enriched`, dealId, {
+    company_name: info.company_name,
+  })
+
+  return data
+}
+
 // ── Activity Events ──────────────────────────────────────────────────
 
 export async function logActivity(

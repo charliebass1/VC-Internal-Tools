@@ -7,8 +7,10 @@ import {
   listReferences, createReference, updateReference, deleteReference,
   addNote, discoverCustomers, generateOutreach,
   generateInterviewGuide, synthesizeSignals, getSignalReports,
+  getCompanyProfile, enrichCompany,
 } from '@/api'
-import { Deal, ReferenceContact, SignalReport } from '@/types'
+import { Deal, ReferenceContact, SignalReport, CompanyProfile } from '@/types'
+import { CompanyProfileCard } from '@/components/CompanyProfileCard'
 
 const STATUS_COLORS: Record<string, string> = {
   identified: 'bg-gray-100 text-gray-700',
@@ -33,6 +35,8 @@ export default function DealDetail() {
   const [tab, setTab] = useState<'references' | 'discover' | 'guide' | 'signals'>('references')
   const [loading, setLoading] = useState(true)
   const [aiLoading, setAiLoading] = useState(false)
+  const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(null)
+  const [enriching, setEnriching] = useState(false)
 
   // Form states
   const [showAddRef, setShowAddRef] = useState(false)
@@ -49,14 +53,16 @@ export default function DealDetail() {
 
   async function loadAll() {
     try {
-      const [d, refs, sigs] = await Promise.all([
+      const [d, refs, sigs, profile] = await Promise.all([
         getDeal(id!),
         listReferences(id!),
         getSignalReports(id!),
+        getCompanyProfile(id!).catch(() => null),
       ])
       setDeal(d)
       setReferences(refs)
       setSignals(sigs)
+      setCompanyProfile(profile)
     } catch (e: any) {
       toast.error(e.message || 'Failed to load deal')
     } finally {
@@ -161,6 +167,30 @@ export default function DealDetail() {
     }
   }
 
+  async function handleEnrich() {
+    if (!deal) return
+    setEnriching(true)
+    try {
+      const profile = await enrichCompany(id!, {
+        company_name: deal.company_name,
+        company_website: deal.company_website,
+        sector: deal.sector,
+        description: deal.description,
+      })
+      setCompanyProfile(profile)
+      toast.success('Company profile enriched')
+    } catch (e: any) {
+      toast.error(e.message || 'Enrichment failed')
+    } finally {
+      setEnriching(false)
+    }
+  }
+
+  async function handleReEnrich() {
+    setCompanyProfile(null)
+    await handleEnrich()
+  }
+
   async function handleDeleteDeal() {
     if (!confirm('Delete this deal and all its references?')) return
     await deleteDeal(id!)
@@ -226,6 +256,15 @@ export default function DealDetail() {
           <button onClick={handleDeleteDeal} className="text-red-400 hover:text-red-600 text-sm px-2">Delete</button>
         </div>
       </div>
+
+      {/* Company Profile Card */}
+      <CompanyProfileCard
+        profile={companyProfile}
+        deal={deal}
+        onEnrich={handleEnrich}
+        onReEnrich={handleReEnrich}
+        enriching={enriching}
+      />
 
       {/* Stats Bar */}
       <div className="grid grid-cols-4 gap-4 mb-8">

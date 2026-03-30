@@ -12,6 +12,28 @@ export interface Deal {
   completed_references: number
 }
 
+export interface KeyPerson {
+  name: string
+  title: string
+  linkedin_url: string
+}
+
+export interface CompanyProfile {
+  id: string
+  deal_id: string
+  logo_url: string
+  founded_year: number | null
+  team_size_range: string
+  funding_stage: string
+  total_raised: string
+  competitors: string[]
+  key_people: KeyPerson[]
+  ai_summary: string
+  enriched_at: string
+  created_at: string
+  updated_at: string
+}
+
 export interface ReferenceNote {
   id: string
   reference_id: string
