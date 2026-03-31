@@ -242,6 +242,113 @@ export async function enrichCompany(
   return data
 }
 
+// ── Contacts ─────────────────────────────────────────────────────────
+
+export async function listContacts(search?: string) {
+  let query = supabase
+    .from('contacts')
+    .select('*')
+    .order('updated_at', { ascending: false })
+
+  if (search) {
+    query = query.or(`name.ilike.%${search}%,company.ilike.%${search}%,email.ilike.%${search}%`)
+  }
+
+  const { data, error } = await query
+  if (error) throw new Error(error.message)
+  return data
+}
+
+export async function getContact(id: string) {
+  const { data, error } = await supabase.from('contacts').select('*').eq('id', id).single()
+  if (error) throw new Error(error.message)
+  return data
+}
+
+export async function createContact(data: any) {
+  const { data: row, error } = await supabase.from('contacts').insert(data).select().single()
+  if (error) throw new Error(error.message)
+  return row
+}
+
+export async function updateContact(id: string, data: any) {
+  const { data: row, error } = await supabase
+    .from('contacts')
+    .update(data)
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw new Error(error.message)
+  return row
+}
+
+export async function deleteContact(id: string) {
+  const { error } = await supabase.from('contacts').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
+// ── Touchpoints ──────────────────────────────────────────────────────
+
+export async function listTouchpoints(dealId?: string, contactId?: string) {
+  let query = supabase
+    .from('touchpoints')
+    .select('*, contact:contacts(*)')
+    .order('occurred_at', { ascending: false })
+
+  if (dealId) query = query.eq('deal_id', dealId)
+  if (contactId) query = query.eq('contact_id', contactId)
+
+  const { data, error } = await query
+  if (error) throw new Error(error.message)
+  return data
+}
+
+export async function createTouchpoint(data: any) {
+  const { data: row, error } = await supabase.from('touchpoints').insert(data).select().single()
+  if (error) throw new Error(error.message)
+  logActivity('meeting_logged', data.title || 'Touchpoint logged', data.deal_id, {
+    type: data.type,
+    source: data.source || 'manual',
+  })
+  return row
+}
+
+export async function deleteTouchpoint(id: string) {
+  const { error } = await supabase.from('touchpoints').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
+// ── Integration Settings (Granola) ───────────────────────────────────
+
+export async function getIntegrationSettings(provider: string) {
+  const { data, error } = await supabase
+    .from('integration_settings')
+    .select('*')
+    .eq('provider', provider)
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  return data
+}
+
+export async function upsertIntegrationSettings(provider: string, settings: any) {
+  const { data, error } = await supabase
+    .from('integration_settings')
+    .upsert({ provider, ...settings }, { onConflict: 'provider' })
+    .select()
+    .single()
+  if (error) throw new Error(error.message)
+  return data
+}
+
+export async function triggerGranolaSync() {
+  try {
+    return await invokeFunction('granola-sync', {})
+  } catch {
+    // Edge Function not deployed — return empty result
+    return { synced: 0, message: 'Granola sync is not available. Deploy the Edge Function first.' }
+  }
+}
+
 // ── Activity Events ──────────────────────────────────────────────────
 
 export async function logActivity(

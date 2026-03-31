@@ -92,3 +92,45 @@ export interface DashboardStats {
   dealsClosed: number
   pipelineCounts: Record<string, number>
 }
+
+export interface Contact {
+  id: string
+  name: string
+  title: string
+  company: string
+  email: string
+  linkedin_url: string
+  relationship_strength: 'strong' | 'warm' | 'cold'
+  tags: string[]
+  notes: string
+  last_contact_date: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface Touchpoint {
+  id: string
+  deal_id: string | null
+  contact_id: string | null
+  type: 'meeting' | 'email' | 'call' | 'intro' | 'note'
+  title: string
+  content: string
+  occurred_at: string
+  created_by: string
+  source: 'manual' | 'granola' | 'import'
+  external_id: string | null
+  created_at: string
+  updated_at: string
+  // Joined fields (optional)
+  contact?: Contact
+}
+
+export interface IntegrationSettings {
+  id: string
+  provider: string
+  api_key: string
+  enabled: boolean
+  last_synced_at: string | null
+  sync_cursor: string
+  config: Record<string, any>
+}
