@@ -6,6 +6,8 @@ import {
   Columns3,
   Briefcase,
   BookOpen,
+  Users,
+  Settings,
   Plus,
   Search,
   Moon,
@@ -77,6 +79,18 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                 className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm cursor-pointer aria-selected:bg-accent aria-selected:text-accent-foreground"
               >
                 <Briefcase className="h-4 w-4" /> Deals
+              </Command.Item>
+              <Command.Item
+                onSelect={() => runAction(() => navigate('/network'))}
+                className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm cursor-pointer aria-selected:bg-accent aria-selected:text-accent-foreground"
+              >
+                <Users className="h-4 w-4" /> Network
+              </Command.Item>
+              <Command.Item
+                onSelect={() => runAction(() => navigate('/settings'))}
+                className="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm cursor-pointer aria-selected:bg-accent aria-selected:text-accent-foreground"
+              >
+                <Settings className="h-4 w-4" /> Settings
               </Command.Item>
               <Command.Item
                 onSelect={() => runAction(() => navigate('/tutorial'))}

@@ -7,8 +7,14 @@ import {
   listReferences, createReference, updateReference, deleteReference,
   addNote, discoverCustomers, generateOutreach,
   generateInterviewGuide, synthesizeSignals, getSignalReports,
+  getCompanyProfile, enrichCompany, listTouchpoints,
 } from '@/api'
-import { Deal, ReferenceContact, SignalReport } from '@/types'
+import { Deal, ReferenceContact, SignalReport, CompanyProfile, Touchpoint } from '@/types'
+import { CompanyProfileCard } from '@/components/CompanyProfileCard'
+import { Timeline } from '@/components/timeline/Timeline'
+import { AddTouchpointDialog } from '@/components/timeline/AddTouchpointDialog'
+import { Button } from '@/components/ui/button'
+import { Plus } from 'lucide-react'
 
 const STATUS_COLORS: Record<string, string> = {
   identified: 'bg-gray-100 text-gray-700',
@@ -30,9 +36,13 @@ export default function DealDetail() {
   const [deal, setDeal] = useState<Deal | null>(null)
   const [references, setReferences] = useState<ReferenceContact[]>([])
   const [signals, setSignals] = useState<SignalReport[]>([])
-  const [tab, setTab] = useState<'references' | 'discover' | 'guide' | 'signals'>('references')
+  const [tab, setTab] = useState<'references' | 'discover' | 'guide' | 'signals' | 'timeline'>('references')
   const [loading, setLoading] = useState(true)
   const [aiLoading, setAiLoading] = useState(false)
+  const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(null)
+  const [enriching, setEnriching] = useState(false)
+  const [touchpoints, setTouchpoints] = useState<Touchpoint[]>([])
+  const [touchpointDialogOpen, setTouchpointDialogOpen] = useState(false)
 
   // Form states
   const [showAddRef, setShowAddRef] = useState(false)
@@ -49,14 +59,18 @@ export default function DealDetail() {
 
   async function loadAll() {
     try {
-      const [d, refs, sigs] = await Promise.all([
+      const [d, refs, sigs, profile, tps] = await Promise.all([
         getDeal(id!),
         listReferences(id!),
         getSignalReports(id!),
+        getCompanyProfile(id!).catch(() => null),
+        listTouchpoints(id!).catch(() => []),
       ])
       setDeal(d)
       setReferences(refs)
       setSignals(sigs)
+      setCompanyProfile(profile)
+      setTouchpoints(tps)
     } catch (e: any) {
       toast.error(e.message || 'Failed to load deal')
     } finally {
@@ -161,6 +175,30 @@ export default function DealDetail() {
     }
   }
 
+  async function handleEnrich() {
+    if (!deal) return
+    setEnriching(true)
+    try {
+      const profile = await enrichCompany(id!, {
+        company_name: deal.company_name,
+        company_website: deal.company_website,
+        sector: deal.sector,
+        description: deal.description,
+      })
+      setCompanyProfile(profile)
+      toast.success('Company profile enriched')
+    } catch (e: any) {
+      toast.error(e.message || 'Enrichment failed')
+    } finally {
+      setEnriching(false)
+    }
+  }
+
+  async function handleReEnrich() {
+    setCompanyProfile(null)
+    await handleEnrich()
+  }
+
   async function handleDeleteDeal() {
     if (!confirm('Delete this deal and all its references?')) return
     await deleteDeal(id!)
@@ -227,6 +265,15 @@ export default function DealDetail() {
         </div>
       </div>
 
+      {/* Company Profile Card */}
+      <CompanyProfileCard
+        profile={companyProfile}
+        deal={deal}
+        onEnrich={handleEnrich}
+        onReEnrich={handleReEnrich}
+        enriching={enriching}
+      />
+
       {/* Stats Bar */}
       <div className="grid grid-cols-4 gap-4 mb-8">
         <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
@@ -248,18 +295,27 @@ export default function DealDetail() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-6 bg-gray-100 p-1 rounded-lg w-fit">
-        {(['references', 'discover', 'guide', 'signals'] as const).map(t => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition ${
-              tab === t ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            {t === 'references' ? 'References' : t === 'discover' ? 'AI Discovery' : t === 'guide' ? 'Interview Guide' : 'Signal Report'}
-          </button>
-        ))}
+      <div className="flex gap-1 mb-6 bg-gray-100 dark:bg-muted p-1 rounded-lg w-fit">
+        {(['references', 'timeline', 'discover', 'guide', 'signals'] as const).map(t => {
+          const labels: Record<string, string> = {
+            references: 'References',
+            timeline: `Timeline (${touchpoints.length})`,
+            discover: 'AI Discovery',
+            guide: 'Interview Guide',
+            signals: 'Signal Report',
+          }
+          return (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition ${
+                tab === t ? 'bg-white dark:bg-background text-gray-900 dark:text-foreground shadow-sm' : 'text-gray-500 dark:text-muted-foreground hover:text-gray-700 dark:hover:text-foreground'
+              }`}
+            >
+              {labels[t]}
+            </button>
+          )
+        })}
       </div>
 
       {/* Tab content with fade-in on switch */}
@@ -403,6 +459,25 @@ export default function DealDetail() {
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Timeline Tab */}
+      {tab === 'timeline' && (
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-semibold">Meeting Timeline</h2>
+            <Button size="sm" onClick={() => setTouchpointDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-1" /> Log Touchpoint
+            </Button>
+          </div>
+          <Timeline touchpoints={touchpoints} />
+          <AddTouchpointDialog
+            open={touchpointDialogOpen}
+            onOpenChange={setTouchpointDialogOpen}
+            dealId={id!}
+            onCreated={loadAll}
+          />
         </div>
       )}
 

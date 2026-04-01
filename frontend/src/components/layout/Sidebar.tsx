@@ -6,6 +6,8 @@ import {
   Columns3,
   Briefcase,
   BookOpen,
+  Users,
+  Settings,
   ChevronsLeft,
   ChevronsRight,
   Mountain,
@@ -20,7 +22,9 @@ const NAV_ITEMS = [
   { label: 'Dashboard', icon: LayoutDashboard, path: '/' },
   { label: 'Pipeline', icon: Columns3, path: '/pipeline' },
   { label: 'Deals', icon: Briefcase, path: '/deals' },
+  { label: 'Network', icon: Users, path: '/network' },
   { label: 'Tutorial', icon: BookOpen, path: '/tutorial' },
+  { label: 'Settings', icon: Settings, path: '/settings' },
 ]
 
 interface SidebarProps {

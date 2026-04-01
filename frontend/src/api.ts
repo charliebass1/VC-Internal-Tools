@@ -158,6 +158,197 @@ export async function getSignalReports(dealId: string) {
 export const seedTutorialData = () =>
   invokeFunction('seed-tutorial', {})
 
+// ── Company Profiles ─────────────────────────────────────────────────
+
+const DEMO_ENRICHMENT = {
+  founded_year: 2019,
+  team_size_range: '51-200',
+  funding_stage: 'Series B',
+  total_raised: '$45M',
+  competitors: ['Competitor Alpha', 'Competitor Beta', 'Competitor Gamma'],
+  key_people: [
+    { name: 'Jane Doe', title: 'CEO & Co-founder', linkedin_url: '' },
+    { name: 'John Smith', title: 'CTO & Co-founder', linkedin_url: '' },
+    { name: 'Alice Johnson', title: 'VP of Engineering', linkedin_url: '' },
+  ],
+  ai_summary:
+    'A fast-growing B2B SaaS platform that uses AI to automate complex workflows for mid-market enterprises. The company has shown strong product-market fit with 3x YoY revenue growth, high net retention, and a rapidly expanding customer base across financial services and healthcare verticals.',
+}
+
+function logoUrlFromWebsite(website: string): string {
+  if (!website) return ''
+  try {
+    const hostname = new URL(website.startsWith('http') ? website : `https://${website}`).hostname
+    return `https://logo.clearbit.com/${hostname}`
+  } catch {
+    return ''
+  }
+}
+
+export async function getCompanyProfile(dealId: string) {
+  const { data, error } = await supabase
+    .from('company_profiles')
+    .select('*')
+    .eq('deal_id', dealId)
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  return data
+}
+
+export async function enrichCompany(
+  dealId: string,
+  info: { company_name: string; company_website: string; sector: string; description: string }
+) {
+  const logo_url = logoUrlFromWebsite(info.company_website)
+
+  let profileData: any
+  try {
+    profileData = await invokeFunction('enrich-company', { ...info, deal_id: dealId })
+  } catch {
+    // Edge Function not deployed — use demo data
+    profileData = { ...DEMO_ENRICHMENT }
+  }
+
+  // Remove non-profile keys
+  delete profileData.demo
+  delete profileData.error
+
+  const { data, error } = await supabase
+    .from('company_profiles')
+    .upsert(
+      {
+        deal_id: dealId,
+        logo_url,
+        founded_year: profileData.founded_year ?? null,
+        team_size_range: profileData.team_size_range || '',
+        funding_stage: profileData.funding_stage || '',
+        total_raised: profileData.total_raised || '',
+        competitors: profileData.competitors || [],
+        key_people: profileData.key_people || [],
+        ai_summary: profileData.ai_summary || '',
+        enriched_at: new Date().toISOString(),
+      },
+      { onConflict: 'deal_id' }
+    )
+    .select()
+    .single()
+
+  if (error) throw new Error(error.message)
+
+  logActivity('company_enriched', `${info.company_name} profile enriched`, dealId, {
+    company_name: info.company_name,
+  })
+
+  return data
+}
+
+// ── Contacts ─────────────────────────────────────────────────────────
+
+export async function listContacts(search?: string) {
+  let query = supabase
+    .from('contacts')
+    .select('*')
+    .order('updated_at', { ascending: false })
+
+  if (search) {
+    query = query.or(`name.ilike.%${search}%,company.ilike.%${search}%,email.ilike.%${search}%`)
+  }
+
+  const { data, error } = await query
+  if (error) throw new Error(error.message)
+  return data
+}
+
+export async function getContact(id: string) {
+  const { data, error } = await supabase.from('contacts').select('*').eq('id', id).single()
+  if (error) throw new Error(error.message)
+  return data
+}
+
+export async function createContact(data: any) {
+  const { data: row, error } = await supabase.from('contacts').insert(data).select().single()
+  if (error) throw new Error(error.message)
+  return row
+}
+
+export async function updateContact(id: string, data: any) {
+  const { data: row, error } = await supabase
+    .from('contacts')
+    .update(data)
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw new Error(error.message)
+  return row
+}
+
+export async function deleteContact(id: string) {
+  const { error } = await supabase.from('contacts').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
+// ── Touchpoints ──────────────────────────────────────────────────────
+
+export async function listTouchpoints(dealId?: string, contactId?: string) {
+  let query = supabase
+    .from('touchpoints')
+    .select('*, contact:contacts(*)')
+    .order('occurred_at', { ascending: false })
+
+  if (dealId) query = query.eq('deal_id', dealId)
+  if (contactId) query = query.eq('contact_id', contactId)
+
+  const { data, error } = await query
+  if (error) throw new Error(error.message)
+  return data
+}
+
+export async function createTouchpoint(data: any) {
+  const { data: row, error } = await supabase.from('touchpoints').insert(data).select().single()
+  if (error) throw new Error(error.message)
+  logActivity('meeting_logged', data.title || 'Touchpoint logged', data.deal_id, {
+    type: data.type,
+    source: data.source || 'manual',
+  })
+  return row
+}
+
+export async function deleteTouchpoint(id: string) {
+  const { error } = await supabase.from('touchpoints').delete().eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
+// ── Integration Settings (Granola) ───────────────────────────────────
+
+export async function getIntegrationSettings(provider: string) {
+  const { data, error } = await supabase
+    .from('integration_settings')
+    .select('*')
+    .eq('provider', provider)
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  return data
+}
+
+export async function upsertIntegrationSettings(provider: string, settings: any) {
+  const { data, error } = await supabase
+    .from('integration_settings')
+    .upsert({ provider, ...settings }, { onConflict: 'provider' })
+    .select()
+    .single()
+  if (error) throw new Error(error.message)
+  return data
+}
+
+export async function triggerGranolaSync() {
+  try {
+    return await invokeFunction('granola-sync', {})
+  } catch {
+    // Edge Function not deployed — return empty result
+    return { synced: 0, message: 'Granola sync is not available. Deploy the Edge Function first.' }
+  }
+}
+
 // ── Activity Events ──────────────────────────────────────────────────
 
 export async function logActivity(

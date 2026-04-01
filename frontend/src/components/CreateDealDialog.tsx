@@ -8,7 +8,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { createDeal } from '@/api'
+import { createDeal, enrichCompany } from '@/api'
 import type { Deal } from '@/types'
 
 interface CreateDealDialogProps {
@@ -39,6 +39,14 @@ export function CreateDealDialog({ open, onOpenChange, onCreated }: CreateDealDi
       setForm(INITIAL_FORM)
       onOpenChange(false)
       onCreated?.(deal)
+
+      // Fire-and-forget: trigger enrichment in the background
+      enrichCompany(deal.id, {
+        company_name: deal.company_name,
+        company_website: deal.company_website,
+        sector: deal.sector,
+        description: deal.description,
+      }).catch(() => {})
     } catch (err: any) {
       toast.error(err.message || 'Failed to create deal')
     } finally {
