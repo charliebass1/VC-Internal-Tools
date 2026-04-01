@@ -293,7 +293,7 @@ export default function DealDetail() {
         setEvaluation(saved)
         evalId = saved.id
       }
-      const result = await analyzeDemoTranscript(evalId, demoTranscript, deal!.company_name, deal!.sector)
+      const result = await analyzeDemoTranscript(evalId!, demoTranscript, deal!.company_name, deal!.sector)
       setDemoAnalysis(result)
       toast.success('Demo analysis complete')
     } catch (e: any) {
