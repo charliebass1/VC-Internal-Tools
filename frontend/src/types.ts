@@ -76,6 +76,62 @@ export interface SignalReport {
   generated_at: string
 }
 
+export interface ProductEvaluation {
+  id: string
+  deal_id: string
+  ux_score: number | null
+  performance_score: number | null
+  integration_score: number | null
+  roadmap_score: number | null
+  moat_score: number | null
+  ux_notes: string
+  performance_notes: string
+  integration_notes: string
+  roadmap_notes: string
+  moat_notes: string
+  g2_rating: number | null
+  g2_review_count: number | null
+  capterra_rating: number | null
+  capterra_review_count: number | null
+  review_summary: string
+  demo_transcript: string
+  demo_analysis: string
+  demo_date: string | null
+  evaluator: string
+  overall_score: number | null
+  created_at: string
+  updated_at: string
+}
+
+export interface DiligenceWorkstream {
+  id: string
+  deal_id: string
+  category: string
+  title: string
+  owner: string
+  status: 'not_started' | 'in_progress' | 'blocked' | 'complete'
+  priority: 'low' | 'medium' | 'high'
+  due_date: string | null
+  notes: string
+  created_at: string
+  updated_at: string
+}
+
+export interface DemoAnalysis {
+  key_strengths: string[]
+  weaknesses: string[]
+  follow_up_questions: string[]
+  red_flags: string[]
+  suggested_scores: {
+    ux_score?: number
+    performance_score?: number
+    integration_score?: number
+    roadmap_score?: number
+    moat_score?: number
+  }
+  summary: string
+}
+
 export interface ActivityEvent {
   id: string
   deal_id: string | null

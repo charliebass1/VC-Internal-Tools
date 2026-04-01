@@ -8,8 +8,11 @@ import {
   addNote, discoverCustomers, generateOutreach,
   generateInterviewGuide, synthesizeSignals, getSignalReports,
   getCompanyProfile, enrichCompany, listTouchpoints,
+  getEvaluation, upsertEvaluation, analyzeDemoTranscript,
+  listDiligenceWorkstreams, createDiligenceWorkstream, updateDiligenceWorkstream,
+  deleteDiligenceWorkstream, seedDiligenceChecklist, generateDiligenceChecklist,
 } from '@/api'
-import { Deal, ReferenceContact, SignalReport, CompanyProfile, Touchpoint } from '@/types'
+import { Deal, ReferenceContact, SignalReport, CompanyProfile, Touchpoint, ProductEvaluation, DemoAnalysis, DiligenceWorkstream } from '@/types'
 import { CompanyProfileCard } from '@/components/CompanyProfileCard'
 import { Timeline } from '@/components/timeline/Timeline'
 import { AddTouchpointDialog } from '@/components/timeline/AddTouchpointDialog'
@@ -36,7 +39,7 @@ export default function DealDetail() {
   const [deal, setDeal] = useState<Deal | null>(null)
   const [references, setReferences] = useState<ReferenceContact[]>([])
   const [signals, setSignals] = useState<SignalReport[]>([])
-  const [tab, setTab] = useState<'references' | 'discover' | 'guide' | 'signals' | 'timeline'>('references')
+  const [tab, setTab] = useState<'references' | 'discover' | 'guide' | 'signals' | 'timeline' | 'evaluation' | 'diligence'>('references')
   const [loading, setLoading] = useState(true)
   const [aiLoading, setAiLoading] = useState(false)
   const [companyProfile, setCompanyProfile] = useState<CompanyProfile | null>(null)
@@ -53,24 +56,75 @@ export default function DealDetail() {
   const [outreachResult, setOutreachResult] = useState<Record<string, string>>({})
   const [expandedRef, setExpandedRef] = useState<string | null>(null)
 
+  // Product evaluation state
+  const [evaluation, setEvaluation] = useState<ProductEvaluation | null>(null)
+  const [evalScores, setEvalScores] = useState<Record<string, number | null>>({
+    ux_score: null, performance_score: null, integration_score: null,
+    roadmap_score: null, moat_score: null,
+  })
+  const [evalNotes, setEvalNotes] = useState<Record<string, string>>({
+    ux_notes: '', performance_notes: '', integration_notes: '',
+    roadmap_notes: '', moat_notes: '',
+  })
+  const [reviewData, setReviewData] = useState({
+    g2_rating: '' as string, g2_review_count: '' as string,
+    capterra_rating: '' as string, capterra_review_count: '' as string,
+  })
+  const [demoTranscript, setDemoTranscript] = useState('')
+  const [demoAnalysis, setDemoAnalysis] = useState<DemoAnalysis | null>(null)
+  const [evalSaving, setEvalSaving] = useState(false)
+
+  // Diligence state
+  const [workstreams, setWorkstreams] = useState<DiligenceWorkstream[]>([])
+  const [diligenceLoading, setDiligenceLoading] = useState(false)
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({
+    customer: true, legal: true, financial: true, technical: true, market: true, team: true, commercial: true,
+  })
+
   useEffect(() => {
     if (id) loadAll()
   }, [id])
 
   async function loadAll() {
     try {
-      const [d, refs, sigs, profile, tps] = await Promise.all([
+      const [d, refs, sigs, profile, tps, evalData, diligenceData] = await Promise.all([
         getDeal(id!),
         listReferences(id!),
         getSignalReports(id!),
         getCompanyProfile(id!).catch(() => null),
         listTouchpoints(id!).catch(() => []),
+        getEvaluation(id!).catch(() => null),
+        listDiligenceWorkstreams(id!).catch(() => []),
       ])
       setDeal(d)
       setReferences(refs)
       setSignals(sigs)
       setCompanyProfile(profile)
       setTouchpoints(tps)
+      setWorkstreams(diligenceData)
+      if (evalData) {
+        setEvaluation(evalData)
+        setEvalScores({
+          ux_score: evalData.ux_score, performance_score: evalData.performance_score,
+          integration_score: evalData.integration_score, roadmap_score: evalData.roadmap_score,
+          moat_score: evalData.moat_score,
+        })
+        setEvalNotes({
+          ux_notes: evalData.ux_notes || '', performance_notes: evalData.performance_notes || '',
+          integration_notes: evalData.integration_notes || '', roadmap_notes: evalData.roadmap_notes || '',
+          moat_notes: evalData.moat_notes || '',
+        })
+        setReviewData({
+          g2_rating: evalData.g2_rating != null ? String(evalData.g2_rating) : '',
+          g2_review_count: evalData.g2_review_count != null ? String(evalData.g2_review_count) : '',
+          capterra_rating: evalData.capterra_rating != null ? String(evalData.capterra_rating) : '',
+          capterra_review_count: evalData.capterra_review_count != null ? String(evalData.capterra_review_count) : '',
+        })
+        setDemoTranscript(evalData.demo_transcript || '')
+        if (evalData.demo_analysis) {
+          try { setDemoAnalysis(JSON.parse(evalData.demo_analysis)) } catch { /* ignore */ }
+        }
+      }
     } catch (e: any) {
       toast.error(e.message || 'Failed to load deal')
     } finally {
@@ -199,6 +253,140 @@ export default function DealDetail() {
     await handleEnrich()
   }
 
+  // Product Evaluation handlers
+  function computeOverallScore(): number | null {
+    const scores = Object.values(evalScores).filter((s): s is number => s !== null)
+    if (scores.length === 0) return null
+    return Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 100) / 100
+  }
+
+  async function handleSaveEvaluation() {
+    setEvalSaving(true)
+    try {
+      const overall = computeOverallScore()
+      const payload = {
+        ...evalScores,
+        ...evalNotes,
+        g2_rating: reviewData.g2_rating ? parseFloat(reviewData.g2_rating) : null,
+        g2_review_count: reviewData.g2_review_count ? parseInt(reviewData.g2_review_count) : null,
+        capterra_rating: reviewData.capterra_rating ? parseFloat(reviewData.capterra_rating) : null,
+        capterra_review_count: reviewData.capterra_review_count ? parseInt(reviewData.capterra_review_count) : null,
+        overall_score: overall,
+      }
+      const saved = await upsertEvaluation(id!, payload)
+      setEvaluation(saved)
+      toast.success('Evaluation saved')
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to save evaluation')
+    } finally {
+      setEvalSaving(false)
+    }
+  }
+
+  async function handleAnalyzeDemo() {
+    if (!demoTranscript.trim()) return
+    setAiLoading(true)
+    try {
+      let evalId = evaluation?.id
+      if (!evalId) {
+        const saved = await upsertEvaluation(id!, { ...evalScores, ...evalNotes })
+        setEvaluation(saved)
+        evalId = saved.id
+      }
+      const result = await analyzeDemoTranscript(evalId!, demoTranscript, deal!.company_name, deal!.sector)
+      setDemoAnalysis(result)
+      toast.success('Demo analysis complete')
+    } catch (e: any) {
+      toast.error(e.message || 'Demo analysis failed')
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
+  function handleApplySuggestedScores() {
+    if (!demoAnalysis?.suggested_scores) return
+    const suggested = demoAnalysis.suggested_scores
+    setEvalScores(prev => ({
+      ux_score: suggested.ux_score ?? prev.ux_score,
+      performance_score: suggested.performance_score ?? prev.performance_score,
+      integration_score: suggested.integration_score ?? prev.integration_score,
+      roadmap_score: suggested.roadmap_score ?? prev.roadmap_score,
+      moat_score: suggested.moat_score ?? prev.moat_score,
+    }))
+    toast.success('Suggested scores applied — click Save to persist')
+  }
+
+  // Diligence handlers
+  async function handleSeedChecklist() {
+    setDiligenceLoading(true)
+    try {
+      const items = await seedDiligenceChecklist(id!)
+      setWorkstreams(prev => [...prev, ...items])
+      toast.success(`${items.length} items added`)
+    } catch (e: any) {
+      toast.error(e.message || 'Failed to seed checklist')
+    } finally {
+      setDiligenceLoading(false)
+    }
+  }
+
+  async function handleGenerateChecklist() {
+    if (!deal) return
+    setDiligenceLoading(true)
+    try {
+      const result = await generateDiligenceChecklist(id!, {
+        company_name: deal.company_name,
+        sector: deal.sector,
+        stage: deal.stage,
+        description: deal.description,
+      })
+      const items = result.items || []
+      const created = await Promise.all(
+        items.map((item: any) => createDiligenceWorkstream(id!, item))
+      )
+      setWorkstreams(prev => [...prev, ...created])
+      toast.success(`AI generated ${created.length} checklist items`)
+    } catch (e: any) {
+      toast.error(e.message || 'AI generation failed')
+    } finally {
+      setDiligenceLoading(false)
+    }
+  }
+
+  async function handleToggleStatus(item: DiligenceWorkstream) {
+    const next = item.status === 'complete' ? 'not_started' : 'complete'
+    try {
+      const updated = await updateDiligenceWorkstream(item.id, { status: next })
+      setWorkstreams(prev => prev.map(w => w.id === item.id ? updated : w))
+    } catch (e: any) {
+      toast.error(e.message || 'Update failed')
+    }
+  }
+
+  async function handleUpdateWorkstreamField(id: string, field: string, value: string) {
+    try {
+      const updated = await updateDiligenceWorkstream(id, { [field]: value })
+      setWorkstreams(prev => prev.map(w => w.id === id ? updated : w))
+    } catch (e: any) {
+      toast.error(e.message || 'Update failed')
+    }
+  }
+
+  async function handleDeleteWorkstream(itemId: string) {
+    try {
+      await deleteDiligenceWorkstream(itemId)
+      setWorkstreams(prev => prev.filter(w => w.id !== itemId))
+    } catch (e: any) {
+      toast.error(e.message || 'Delete failed')
+    }
+  }
+
+  function computeIcReadiness(): number | null {
+    if (workstreams.length === 0) return null
+    const complete = workstreams.filter(w => w.status === 'complete').length
+    return Math.round((complete / workstreams.length) * 100)
+  }
+
   async function handleDeleteDeal() {
     if (!confirm('Delete this deal and all its references?')) return
     await deleteDeal(id!)
@@ -275,7 +463,7 @@ export default function DealDetail() {
       />
 
       {/* Stats Bar */}
-      <div className="grid grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-6 gap-4 mb-8">
         <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
           <div className="text-2xl font-bold text-gray-900">{references.length}</div>
           <div className="text-sm text-gray-500">Total Refs</div>
@@ -292,17 +480,47 @@ export default function DealDetail() {
           <div className="text-2xl font-bold text-indigo-600">{signals.length}</div>
           <div className="text-sm text-gray-500">Signal Reports</div>
         </div>
+        <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
+          {(() => {
+            const score = computeOverallScore()
+            const color = score === null ? 'text-gray-400' : score >= 3.5 ? 'text-green-600' : score >= 2.5 ? 'text-yellow-600' : 'text-red-600'
+            return (
+              <>
+                <div className={`text-2xl font-bold ${color}`}>
+                  {score !== null ? `${score.toFixed(1)}` : '—'}
+                </div>
+                <div className="text-sm text-gray-500">Product Score</div>
+              </>
+            )
+          })()}
+        </div>
+        <div className="bg-white rounded-xl border border-gray-200 p-4 text-center">
+          {(() => {
+            const pct = computeIcReadiness()
+            const color = pct === null ? 'text-gray-400' : pct >= 70 ? 'text-green-600' : pct >= 40 ? 'text-yellow-600' : 'text-red-600'
+            return (
+              <>
+                <div className={`text-2xl font-bold ${color}`}>
+                  {pct !== null ? `${pct}%` : '—'}
+                </div>
+                <div className="text-sm text-gray-500">IC Readiness</div>
+              </>
+            )
+          })()}
+        </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-6 bg-gray-100 dark:bg-muted p-1 rounded-lg w-fit">
-        {(['references', 'timeline', 'discover', 'guide', 'signals'] as const).map(t => {
+      <div className="flex gap-1 mb-6 bg-gray-100 dark:bg-muted p-1 rounded-lg w-fit flex-wrap">
+        {(['references', 'timeline', 'discover', 'guide', 'signals', 'evaluation', 'diligence'] as const).map(t => {
           const labels: Record<string, string> = {
             references: 'References',
             timeline: `Timeline (${touchpoints.length})`,
             discover: 'AI Discovery',
             guide: 'Interview Guide',
             signals: 'Signal Report',
+            evaluation: 'Product Eval',
+            diligence: 'Diligence',
           }
           return (
             <button
@@ -618,6 +836,363 @@ export default function DealDetail() {
                   ))}
                 </div>
               </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Product Evaluation Tab */}
+      {tab === 'evaluation' && (
+        <div className="space-y-6">
+          {/* Section A: Scoring Rubric */}
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-lg font-semibold">Product Scoring Rubric</h2>
+              <div className="flex items-center gap-3">
+                {(() => {
+                  const score = computeOverallScore()
+                  if (score === null) return <span className="text-sm text-gray-400">No scores yet</span>
+                  const color = score >= 3.5 ? 'text-green-600 bg-green-50 border-green-200' : score >= 2.5 ? 'text-yellow-600 bg-yellow-50 border-yellow-200' : 'text-red-600 bg-red-50 border-red-200'
+                  return <span className={`text-lg font-bold px-3 py-1 rounded-lg border ${color}`}>{score.toFixed(1)} / 5</span>
+                })()}
+                <button
+                  onClick={handleSaveEvaluation}
+                  disabled={evalSaving}
+                  className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-700 active:scale-95 transition-all duration-200 disabled:opacity-50"
+                >
+                  {evalSaving ? 'Saving...' : 'Save Scores'}
+                </button>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {([
+                { key: 'ux', label: 'UX / Usability', desc: 'Intuitiveness, self-serve capability, onboarding friction' },
+                { key: 'performance', label: 'Performance', desc: 'Speed, reliability, uptime from references and demo' },
+                { key: 'integration', label: 'Integration Depth', desc: 'API quality, ecosystem connectors, data portability' },
+                { key: 'roadmap', label: 'Roadmap Credibility', desc: 'Realism, team capacity to execute, prioritization' },
+                { key: 'moat', label: 'Technical Moat', desc: 'Defensibility, switching costs, data flywheel' },
+              ] as const).map(dim => {
+                const scoreKey = `${dim.key}_score` as keyof typeof evalScores
+                const notesKey = `${dim.key}_notes` as keyof typeof evalNotes
+                const currentScore = evalScores[scoreKey]
+
+                return (
+                  <div key={dim.key} className="border border-gray-100 rounded-lg p-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <span className="font-medium text-gray-900">{dim.label}</span>
+                        <p className="text-xs text-gray-400 mt-0.5">{dim.desc}</p>
+                      </div>
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5].map(n => (
+                          <button
+                            key={n}
+                            onClick={() => setEvalScores({ ...evalScores, [scoreKey]: currentScore === n ? null : n })}
+                            className={`w-8 h-8 rounded-full text-sm font-medium transition-all ${
+                              currentScore !== null && n <= currentScore
+                                ? 'bg-indigo-600 text-white'
+                                : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                            }`}
+                          >
+                            {n}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <textarea
+                      placeholder={`Notes on ${dim.label.toLowerCase()}...`}
+                      value={evalNotes[notesKey]}
+                      onChange={e => setEvalNotes({ ...evalNotes, [notesKey]: e.target.value })}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mt-1 resize-none"
+                      rows={2}
+                    />
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Section B: Review Aggregation */}
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold mb-4">Review Aggregation</h2>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium text-gray-700">G2</h3>
+                <div className="flex gap-2">
+                  <input
+                    type="number" step="0.1" min="0" max="5" placeholder="Rating (0-5)"
+                    value={reviewData.g2_rating}
+                    onChange={e => setReviewData({ ...reviewData, g2_rating: e.target.value })}
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-32"
+                  />
+                  <input
+                    type="number" min="0" placeholder="# Reviews"
+                    value={reviewData.g2_review_count}
+                    onChange={e => setReviewData({ ...reviewData, g2_review_count: e.target.value })}
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-32"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium text-gray-700">Capterra</h3>
+                <div className="flex gap-2">
+                  <input
+                    type="number" step="0.1" min="0" max="5" placeholder="Rating (0-5)"
+                    value={reviewData.capterra_rating}
+                    onChange={e => setReviewData({ ...reviewData, capterra_rating: e.target.value })}
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-32"
+                  />
+                  <input
+                    type="number" min="0" placeholder="# Reviews"
+                    value={reviewData.capterra_review_count}
+                    onChange={e => setReviewData({ ...reviewData, capterra_review_count: e.target.value })}
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-sm w-32"
+                  />
+                </div>
+              </div>
+            </div>
+            {evaluation?.review_summary && (
+              <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">AI Review Summary</h4>
+                <p className="text-sm text-gray-600">{evaluation.review_summary}</p>
+              </div>
+            )}
+          </div>
+
+          {/* Section C: Demo Analysis */}
+          <div className="bg-white rounded-xl border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold mb-4">Demo Analysis</h2>
+            <textarea
+              placeholder="Paste demo transcript or notes here..."
+              value={demoTranscript}
+              onChange={e => setDemoTranscript(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm resize-none"
+              rows={6}
+            />
+            <div className="flex gap-2 mt-3">
+              <button
+                onClick={handleAnalyzeDemo}
+                disabled={aiLoading || !demoTranscript.trim()}
+                className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-700 active:scale-95 transition-all duration-200 disabled:opacity-50"
+              >
+                {aiLoading ? 'Analyzing...' : 'Analyze Demo'}
+              </button>
+            </div>
+
+            {demoAnalysis && (
+              <div className="mt-6 space-y-4">
+                {/* Summary */}
+                <div className="p-4 bg-indigo-50 rounded-lg border border-indigo-200">
+                  <p className="text-sm text-indigo-900">{demoAnalysis.summary}</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Key Strengths */}
+                  <div className="p-4 bg-green-50 rounded-lg border border-green-200">
+                    <h4 className="text-sm font-semibold text-green-800 mb-2">Key Strengths</h4>
+                    <ul className="space-y-1">
+                      {demoAnalysis.key_strengths.map((s, i) => (
+                        <li key={i} className="text-sm text-green-700 flex gap-2">
+                          <span className="mt-0.5 shrink-0">+</span><span>{s}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* Weaknesses */}
+                  <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                    <h4 className="text-sm font-semibold text-yellow-800 mb-2">Weaknesses</h4>
+                    <ul className="space-y-1">
+                      {demoAnalysis.weaknesses.map((w, i) => (
+                        <li key={i} className="text-sm text-yellow-700 flex gap-2">
+                          <span className="mt-0.5 shrink-0">-</span><span>{w}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* Follow-up Questions */}
+                  <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <h4 className="text-sm font-semibold text-blue-800 mb-2">Follow-up Questions</h4>
+                    <ul className="space-y-1">
+                      {demoAnalysis.follow_up_questions.map((q, i) => (
+                        <li key={i} className="text-sm text-blue-700 flex gap-2">
+                          <span className="mt-0.5 shrink-0">?</span><span>{q}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* Red Flags */}
+                  <div className="p-4 bg-red-50 rounded-lg border border-red-200">
+                    <h4 className="text-sm font-semibold text-red-800 mb-2">Red Flags</h4>
+                    <ul className="space-y-1">
+                      {demoAnalysis.red_flags.map((f, i) => (
+                        <li key={i} className="text-sm text-red-700 flex gap-2">
+                          <span className="mt-0.5 shrink-0">!</span><span>{f}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+
+                {/* Suggested Scores */}
+                {demoAnalysis.suggested_scores && (
+                  <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <div className="flex justify-between items-center mb-3">
+                      <h4 className="text-sm font-semibold text-gray-700">AI Suggested Scores</h4>
+                      <button
+                        onClick={handleApplySuggestedScores}
+                        className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs hover:bg-indigo-700 active:scale-95 transition-all"
+                      >
+                        Apply Suggestions
+                      </button>
+                    </div>
+                    <div className="flex gap-4">
+                      {Object.entries(demoAnalysis.suggested_scores).map(([key, val]) => (
+                        <div key={key} className="text-center">
+                          <div className="text-lg font-bold text-indigo-600">{val}</div>
+                          <div className="text-xs text-gray-500">{key.replace('_score', '').replace('_', ' ')}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Diligence Tab */}
+      {tab === 'diligence' && (
+        <div className="space-y-4">
+          {/* Header Actions */}
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-semibold">Diligence Checklist</h2>
+            <div className="flex gap-2">
+              <button
+                onClick={handleGenerateChecklist}
+                disabled={diligenceLoading}
+                className="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-sm hover:bg-indigo-700 active:scale-95 transition-all duration-200 disabled:opacity-50"
+              >
+                {diligenceLoading ? 'Working...' : 'Generate AI Checklist'}
+              </button>
+              <button
+                onClick={handleSeedChecklist}
+                disabled={diligenceLoading}
+                className="bg-white border border-gray-300 text-gray-700 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-50 active:scale-95 transition-all duration-200 disabled:opacity-50"
+              >
+                Seed Default Checklist
+              </button>
+            </div>
+          </div>
+
+          {workstreams.length === 0 ? (
+            <div className="text-center py-12 bg-white rounded-xl border border-gray-200">
+              <p className="text-gray-500 mb-2">No diligence items yet.</p>
+              <p className="text-sm text-gray-400">Seed the default checklist or generate an AI-tailored one.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {(['customer', 'legal', 'financial', 'technical', 'market', 'team', 'commercial'] as const).map(cat => {
+                const items = workstreams.filter(w => w.category === cat)
+                if (items.length === 0) return null
+                const complete = items.filter(w => w.status === 'complete').length
+                const isExpanded = expandedCategories[cat] !== false
+
+                const CATEGORY_LABELS: Record<string, string> = {
+                  customer: 'Customer', legal: 'Legal', financial: 'Financial',
+                  technical: 'Technical', market: 'Market', team: 'Team', commercial: 'Commercial',
+                }
+
+                return (
+                  <div key={cat} className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+                    <button
+                      className="w-full flex items-center justify-between p-4 hover:bg-gray-50 transition text-left"
+                      onClick={() => setExpandedCategories(prev => ({ ...prev, [cat]: !prev[cat] }))}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="font-semibold text-gray-900">{CATEGORY_LABELS[cat]}</span>
+                        <span className="text-xs text-gray-400">{complete}/{items.length} complete</span>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="w-24 h-1.5 bg-gray-200 rounded-full">
+                          <div
+                            className={`h-1.5 rounded-full transition-all ${complete === items.length ? 'bg-green-500' : 'bg-indigo-500'}`}
+                            style={{ width: `${(complete / items.length) * 100}%` }}
+                          />
+                        </div>
+                        <span className="text-gray-400 text-xs">{isExpanded ? '▲' : '▼'}</span>
+                      </div>
+                    </button>
+
+                    {isExpanded && (
+                      <div className="border-t border-gray-100 divide-y divide-gray-50">
+                        {items.map(item => (
+                          <div key={item.id} className="p-3 flex items-start gap-3 hover:bg-gray-50 transition">
+                            <button
+                              onClick={() => handleToggleStatus(item)}
+                              className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-all ${
+                                item.status === 'complete'
+                                  ? 'bg-green-500 border-green-500 text-white'
+                                  : item.status === 'blocked'
+                                  ? 'border-red-400 bg-red-50'
+                                  : item.status === 'in_progress'
+                                  ? 'border-blue-400 bg-blue-50'
+                                  : 'border-gray-300'
+                              }`}
+                            >
+                              {item.status === 'complete' && <span className="text-xs font-bold">✓</span>}
+                            </button>
+
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className={`text-sm font-medium ${item.status === 'complete' ? 'line-through text-gray-400' : 'text-gray-900'}`}>
+                                  {item.title}
+                                </span>
+                                <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
+                                  item.priority === 'high' ? 'bg-red-100 text-red-700' :
+                                  item.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                                  'bg-gray-100 text-gray-500'
+                                }`}>
+                                  {item.priority}
+                                </span>
+                                <select
+                                  value={item.status}
+                                  onChange={e => handleUpdateWorkstreamField(item.id, 'status', e.target.value)}
+                                  className="text-xs border border-gray-200 rounded px-1.5 py-0.5 text-gray-600"
+                                >
+                                  <option value="not_started">Not Started</option>
+                                  <option value="in_progress">In Progress</option>
+                                  <option value="blocked">Blocked</option>
+                                  <option value="complete">Complete</option>
+                                </select>
+                              </div>
+                              <div className="flex gap-2 mt-1">
+                                <input
+                                  type="text"
+                                  placeholder="Owner..."
+                                  defaultValue={item.owner}
+                                  onBlur={e => handleUpdateWorkstreamField(item.id, 'owner', e.target.value)}
+                                  className="text-xs border border-gray-200 rounded px-2 py-1 text-gray-600 w-32"
+                                />
+                                <button
+                                  onClick={() => handleDeleteWorkstream(item.id)}
+                                  className="text-xs text-red-400 hover:text-red-600"
+                                >
+                                  Remove
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>

@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .database import init_db
-from .routers import deals, references, synthesis, seed
+from .routers import deals, references, synthesis, seed, evaluation, diligence
 
 app = FastAPI(
     title="VC Reference Check Tool",
@@ -22,6 +22,8 @@ app.include_router(deals.router)
 app.include_router(references.router)
 app.include_router(synthesis.router)
 app.include_router(seed.router)
+app.include_router(evaluation.router)
+app.include_router(diligence.router)
 
 
 @app.on_event("startup")
