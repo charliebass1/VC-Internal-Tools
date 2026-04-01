@@ -141,6 +141,149 @@ export const generateInterviewGuide = (dealId: string, data: any) =>
 export const synthesizeSignals = (dealId: string) =>
   invokeFunction('synthesize', { deal_id: dealId })
 
+// ── Product Evaluation ───────────────────────────────────────────────────
+
+export async function getEvaluation(dealId: string) {
+  const { data, error } = await supabase
+    .from('product_evaluations')
+    .select('*')
+    .eq('deal_id', dealId)
+    .single()
+  if (error && error.code !== 'PGRST116') throw new Error(error.message)
+  return data || null
+}
+
+export async function upsertEvaluation(dealId: string, evalData: any) {
+  // Check if one exists already
+  const existing = await getEvaluation(dealId)
+
+  if (existing) {
+    const { data, error } = await supabase
+      .from('product_evaluations')
+      .update(evalData)
+      .eq('id', existing.id)
+      .select()
+      .single()
+    if (error) throw new Error(error.message)
+    return data
+  }
+
+  const { data, error } = await supabase
+    .from('product_evaluations')
+    .insert({ ...evalData, deal_id: dealId })
+    .select()
+    .single()
+  if (error) throw new Error(error.message)
+  return data
+}
+
+export async function analyzeDemoTranscript(
+  evaluationId: string,
+  transcript: string,
+  companyName: string,
+  sector: string
+) {
+  return invokeFunction('analyze-demo', {
+    evaluation_id: evaluationId,
+    transcript,
+    company_name: companyName,
+    sector,
+  })
+}
+
+// ── Diligence Workstreams ─────────────────────────────────────────────────
+
+export async function listDiligenceWorkstreams(dealId: string) {
+  const { data, error } = await supabase
+    .from('diligence_workstreams')
+    .select('*')
+    .eq('deal_id', dealId)
+    .order('category')
+    .order('created_at')
+  if (error) throw new Error(error.message)
+  return data || []
+}
+
+export async function createDiligenceWorkstream(dealId: string, itemData: any) {
+  const { data, error } = await supabase
+    .from('diligence_workstreams')
+    .insert({ ...itemData, deal_id: dealId })
+    .select()
+    .single()
+  if (error) throw new Error(error.message)
+  return data
+}
+
+export async function updateDiligenceWorkstream(id: string, updates: any) {
+  const { data, error } = await supabase
+    .from('diligence_workstreams')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single()
+  if (error) throw new Error(error.message)
+  return data
+}
+
+export async function deleteDiligenceWorkstream(id: string) {
+  const { error } = await supabase
+    .from('diligence_workstreams')
+    .delete()
+    .eq('id', id)
+  if (error) throw new Error(error.message)
+}
+
+export async function seedDiligenceChecklist(dealId: string) {
+  const DEFAULT_ITEMS = [
+    { category: 'customer', title: 'Reference check calls (company-provided)', priority: 'high' },
+    { category: 'customer', title: 'Independent customer interviews (backchannel)', priority: 'high' },
+    { category: 'customer', title: 'G2/Capterra review analysis', priority: 'medium' },
+    { category: 'customer', title: 'NPS benchmark review', priority: 'medium' },
+    { category: 'legal', title: 'Cap table review', priority: 'high' },
+    { category: 'legal', title: 'IP ownership verification', priority: 'high' },
+    { category: 'legal', title: 'Prior litigation check', priority: 'medium' },
+    { category: 'legal', title: 'Data privacy compliance (SOC2/GDPR)', priority: 'medium' },
+    { category: 'legal', title: 'Key customer contract terms', priority: 'medium' },
+    { category: 'financial', title: 'ARR/revenue growth rate', priority: 'high' },
+    { category: 'financial', title: 'Gross margin analysis', priority: 'high' },
+    { category: 'financial', title: 'Burn rate and runway', priority: 'high' },
+    { category: 'financial', title: 'Unit economics (CAC, LTV, payback)', priority: 'high' },
+    { category: 'financial', title: 'Full data room review', priority: 'medium' },
+    { category: 'technical', title: 'System architecture review', priority: 'medium' },
+    { category: 'technical', title: 'Security posture assessment', priority: 'medium' },
+    { category: 'technical', title: 'Engineering team size/quality', priority: 'medium' },
+    { category: 'technical', title: 'Tech debt evaluation', priority: 'low' },
+    { category: 'market', title: 'TAM/SAM/SOM sizing', priority: 'high' },
+    { category: 'market', title: 'Competitive landscape map', priority: 'high' },
+    { category: 'market', title: 'Industry analyst reports', priority: 'medium' },
+    { category: 'market', title: 'Market timing thesis', priority: 'medium' },
+    { category: 'team', title: 'Founder background checks', priority: 'high' },
+    { category: 'team', title: 'Key leadership assessment', priority: 'high' },
+    { category: 'team', title: 'Org design and culture', priority: 'medium' },
+    { category: 'team', title: 'Founder reference calls', priority: 'high' },
+    { category: 'commercial', title: 'Customer concentration analysis', priority: 'high' },
+    { category: 'commercial', title: 'Contract terms and duration', priority: 'medium' },
+    { category: 'commercial', title: 'Pricing power signals', priority: 'medium' },
+    { category: 'commercial', title: 'Logo churn data', priority: 'high' },
+  ]
+  const rows = DEFAULT_ITEMS.map(item => ({ ...item, deal_id: dealId }))
+  const { data, error } = await supabase
+    .from('diligence_workstreams')
+    .insert(rows)
+    .select()
+  if (error) throw new Error(error.message)
+  return data || []
+}
+
+export async function generateDiligenceChecklist(dealId: string, dealData: {
+  company_name: string
+  sector: string
+  stage: string
+  description: string
+}) {
+  return invokeFunction('generate-diligence-checklist', { deal_id: dealId, ...dealData })
+}
+
 // ── Signal Reports ────────────────────────────────────────────────────────
 
 export async function getSignalReports(dealId: string) {

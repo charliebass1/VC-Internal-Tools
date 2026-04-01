@@ -135,3 +135,124 @@ class InterviewGuideRequest(BaseModel):
     sector: str = ""
     reference_name: str = ""
     reference_company: str = ""
+
+
+# --- Product Evaluation ---
+
+class ProductEvaluationCreate(BaseModel):
+    ux_score: int | None = None
+    performance_score: int | None = None
+    integration_score: int | None = None
+    roadmap_score: int | None = None
+    moat_score: int | None = None
+    ux_notes: str = ""
+    performance_notes: str = ""
+    integration_notes: str = ""
+    roadmap_notes: str = ""
+    moat_notes: str = ""
+    g2_rating: float | None = None
+    g2_review_count: int | None = None
+    capterra_rating: float | None = None
+    capterra_review_count: int | None = None
+    review_summary: str = ""
+    demo_transcript: str = ""
+    demo_analysis: str = ""
+    demo_date: datetime | None = None
+    evaluator: str = ""
+    overall_score: float | None = None
+
+
+class ProductEvaluationUpdate(BaseModel):
+    ux_score: int | None = None
+    performance_score: int | None = None
+    integration_score: int | None = None
+    roadmap_score: int | None = None
+    moat_score: int | None = None
+    ux_notes: str | None = None
+    performance_notes: str | None = None
+    integration_notes: str | None = None
+    roadmap_notes: str | None = None
+    moat_notes: str | None = None
+    g2_rating: float | None = None
+    g2_review_count: int | None = None
+    capterra_rating: float | None = None
+    capterra_review_count: int | None = None
+    review_summary: str | None = None
+    demo_transcript: str | None = None
+    demo_analysis: str | None = None
+    demo_date: datetime | None = None
+    evaluator: str | None = None
+    overall_score: float | None = None
+
+
+class ProductEvaluationOut(BaseModel):
+    id: str
+    deal_id: str
+    ux_score: int | None = None
+    performance_score: int | None = None
+    integration_score: int | None = None
+    roadmap_score: int | None = None
+    moat_score: int | None = None
+    ux_notes: str
+    performance_notes: str
+    integration_notes: str
+    roadmap_notes: str
+    moat_notes: str
+    g2_rating: float | None = None
+    g2_review_count: int | None = None
+    capterra_rating: float | None = None
+    capterra_review_count: int | None = None
+    review_summary: str
+    demo_transcript: str
+    demo_analysis: str
+    demo_date: datetime | None = None
+    evaluator: str
+    overall_score: float | None = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class DemoAnalysisRequest(BaseModel):
+    transcript: str
+    company_name: str
+    sector: str = ""
+
+
+# --- Diligence Workstream ---
+
+class DiligenceWorkstreamCreate(BaseModel):
+    category: str
+    title: str
+    owner: str = ""
+    status: str = "not_started"
+    priority: str = "medium"
+    due_date: datetime | None = None
+    notes: str = ""
+
+
+class DiligenceWorkstreamUpdate(BaseModel):
+    category: str | None = None
+    title: str | None = None
+    owner: str | None = None
+    status: str | None = None
+    priority: str | None = None
+    due_date: datetime | None = None
+    notes: str | None = None
+
+
+class DiligenceWorkstreamOut(BaseModel):
+    id: str
+    deal_id: str
+    category: str
+    title: str
+    owner: str
+    status: str
+    priority: str
+    due_date: datetime | None = None
+    notes: str
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}

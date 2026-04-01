@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, String, Text, DateTime, ForeignKey, JSON
+from sqlalchemy import Column, String, Text, DateTime, ForeignKey, JSON, Integer, Float
 from sqlalchemy.orm import relationship
 
 from .database import Base
@@ -30,6 +30,8 @@ class Deal(Base):
 
     references = relationship("ReferenceContact", back_populates="deal", cascade="all, delete-orphan")
     signal_reports = relationship("SignalReport", back_populates="deal", cascade="all, delete-orphan")
+    product_evaluation = relationship("ProductEvaluation", back_populates="deal", uselist=False, cascade="all, delete-orphan")
+    diligence_workstreams = relationship("DiligenceWorkstream", back_populates="deal", cascade="all, delete-orphan")
 
 
 class ReferenceContact(Base):
@@ -77,3 +79,62 @@ class SignalReport(Base):
     generated_at = Column(DateTime, default=utcnow)
 
     deal = relationship("Deal", back_populates="signal_reports")
+
+
+class ProductEvaluation(Base):
+    __tablename__ = "product_evaluations"
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    deal_id = Column(String, ForeignKey("deals.id"), nullable=False, unique=True)
+
+    # Scoring dimensions (1-5)
+    ux_score = Column(Integer, nullable=True)
+    performance_score = Column(Integer, nullable=True)
+    integration_score = Column(Integer, nullable=True)
+    roadmap_score = Column(Integer, nullable=True)
+    moat_score = Column(Integer, nullable=True)
+
+    # Notes per dimension
+    ux_notes = Column(Text, default="")
+    performance_notes = Column(Text, default="")
+    integration_notes = Column(Text, default="")
+    roadmap_notes = Column(Text, default="")
+    moat_notes = Column(Text, default="")
+
+    # Review aggregation
+    g2_rating = Column(Float, nullable=True)
+    g2_review_count = Column(Integer, nullable=True)
+    capterra_rating = Column(Float, nullable=True)
+    capterra_review_count = Column(Integer, nullable=True)
+    review_summary = Column(Text, default="")
+
+    # Demo analysis
+    demo_transcript = Column(Text, default="")
+    demo_analysis = Column(Text, default="")
+    demo_date = Column(DateTime, nullable=True)
+
+    # Metadata
+    evaluator = Column(String, default="")
+    overall_score = Column(Float, nullable=True)
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+    deal = relationship("Deal", back_populates="product_evaluation")
+
+
+class DiligenceWorkstream(Base):
+    __tablename__ = "diligence_workstreams"
+
+    id = Column(String, primary_key=True, default=gen_uuid)
+    deal_id = Column(String, ForeignKey("deals.id"), nullable=False)
+    category = Column(String, nullable=False)
+    title = Column(String, nullable=False)
+    owner = Column(String, default="")
+    status = Column(String, default="not_started")
+    priority = Column(String, default="medium")
+    due_date = Column(DateTime, nullable=True)
+    notes = Column(Text, default="")
+    created_at = Column(DateTime, default=utcnow)
+    updated_at = Column(DateTime, default=utcnow, onupdate=utcnow)
+
+    deal = relationship("Deal", back_populates="diligence_workstreams")
